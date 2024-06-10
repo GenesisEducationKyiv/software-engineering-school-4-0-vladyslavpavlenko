@@ -97,7 +97,7 @@ func runDBMigrations(db *gorm.DB) error {
 	// create tables
 	err := db.AutoMigrate(&models.Currency{}, &models.User{}, &models.Subscription{})
 	if err != nil {
-		return fmt.Errorf("error during migration: %v", err)
+		return fmt.Errorf("error during migration: %w", err)
 	}
 
 	// populate tables with initial data

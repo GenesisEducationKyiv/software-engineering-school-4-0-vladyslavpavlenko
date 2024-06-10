@@ -21,19 +21,19 @@ func GetRate(baseCode string, targetCode string) (string, error) {
 	url := fmt.Sprintf("https://api.coinbase.com/v2/prices/%s-%s/buy", baseCode, targetCode)
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", fmt.Errorf("error making request: %v", err)
+		return "", fmt.Errorf("error making request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("error reading the response body: %v", err)
+		return "", fmt.Errorf("error reading the response body: %w", err)
 	}
 
 	var response CoinbaseResponse
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		return "", fmt.Errorf("error unmarshaling the response: %v", err)
+		return "", fmt.Errorf("error unmarshaling the response: %w", err)
 	}
 
 	return response.Data.Amount, nil

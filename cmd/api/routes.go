@@ -15,17 +15,19 @@ func routes() http.Handler {
 	mux.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
 
-	mux.Use(middleware.Heartbeat("/"))
+	mux.Use(middleware.Heartbeat("/health"))
 
-	mux.Get("/rate", handlers.Repo.GetRate)
-	mux.Post("/subscribe", handlers.Repo.Subscribe)
-	mux.Post("/sendEmails", handlers.Repo.SendEmails)
+	mux.Route("/api/v1", func(mux chi.Router) {
+		mux.Get("/rate", handlers.Repo.GetRate)
+		mux.Post("/subscribe", handlers.Repo.Subscribe)
+		mux.Post("/sendEmails", handlers.Repo.SendEmails)
+	})
 
 	return mux
 }

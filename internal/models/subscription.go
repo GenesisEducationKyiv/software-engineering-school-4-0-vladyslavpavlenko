@@ -1,9 +1,6 @@
 package models
 
 import (
-	"errors"
-	"github.com/jackc/pgx/v5/pgconn"
-	"gorm.io/gorm"
 	"time"
 )
 
@@ -17,22 +14,4 @@ type Subscription struct {
 	TargetCurrencyID uint      `gorm:"not null;index" json:"target_currency_id"`
 	TargetCurrency   Currency  `gorm:"foreignKey:TargetCurrencyID" json:"-"`
 	CreatedAt        time.Time `json:"created_at"`
-}
-
-// Create creates a new User record.
-func (s *Subscription) Create(userID uint, baseID uint, targetID uint) (*Subscription, error) {
-	subscription := Subscription{
-		UserID:           userID,
-		BaseCurrencyID:   baseID,
-		TargetCurrencyID: targetID,
-	}
-	result := db.Create(&subscription)
-	if result.Error != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(result.Error, &pgErr) && pgErr.Code == "23505" {
-			return nil, gorm.ErrDuplicatedKey
-		}
-		return nil, result.Error
-	}
-	return &subscription, nil
 }
