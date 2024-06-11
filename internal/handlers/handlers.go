@@ -3,9 +3,10 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"net/http"
+
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rate"
 	"gorm.io/gorm"
-	"net/http"
 )
 
 type jsonResponse struct {
@@ -29,7 +30,7 @@ type subscriptionBody struct {
 }
 
 // GetRate gets the current USD to UAH exchange rate.
-func (m *Repository) GetRate(w http.ResponseWriter, r *http.Request) {
+func (m *Repository) GetRate(w http.ResponseWriter, _ *http.Request) {
 	price, err := rate.GetRate("USD", "UAH")
 	if err != nil {
 		_ = m.errorJSON(w, fmt.Errorf("error getting rate update: %w", err), http.StatusBadRequest) // http.StatusServiceUnavailable
@@ -118,6 +119,6 @@ func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
 }
 
 // SendEmails handles the /sendEmails request.
-func (m *Repository) SendEmails(w http.ResponseWriter, r *http.Request) {
+func (m *Repository) SendEmails(_ http.ResponseWriter, _ *http.Request) {
 	m.NotifySubscribers()
 }

@@ -2,11 +2,12 @@ package handlers
 
 import (
 	"fmt"
+	"log"
+	"sync"
+
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rate"
-	"log"
-	"sync"
 )
 
 // NotifySubscribers handles sending emails to all the subscribers.

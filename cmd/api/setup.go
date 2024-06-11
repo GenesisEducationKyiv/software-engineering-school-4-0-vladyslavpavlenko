@@ -3,6 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"time"
+
 	"github.com/joho/godotenv"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
@@ -10,9 +14,6 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"log"
-	"os"
-	"time"
 )
 
 var counts int64
@@ -20,7 +21,7 @@ var counts int64
 func setup(app *config.AppConfig) error {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
+		return fmt.Errorf("error loading the .env file: %w", err)
 	}
 
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable timezone=UTC connect_timeout=5",
@@ -32,12 +33,12 @@ func setup(app *config.AppConfig) error {
 
 	db, err := connectToDB(dsn)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("error conntecting to the database: %w", err)
 	}
 
 	err = runDBMigrations(db)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("error runnning database migrations: %w", err)
 	}
 
 	app.DB = db
@@ -49,7 +50,7 @@ func setup(app *config.AppConfig) error {
 	}
 
 	if app.EmailConfig.Email == "" || app.EmailConfig.Password == "" {
-		log.Fatal("Missing email configuration in environment variables")
+		return errors.New("missing email configuration in environment variables")
 	}
 
 	repo := handlers.NewRepo(app)

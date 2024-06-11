@@ -2,9 +2,10 @@ package models
 
 import (
 	"errors"
+	"time"
+
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
-	"time"
 )
 
 type UserRepository struct {
