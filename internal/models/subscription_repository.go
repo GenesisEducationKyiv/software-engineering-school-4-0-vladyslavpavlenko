@@ -6,14 +6,23 @@ import (
 	"gorm.io/gorm"
 )
 
-// Create creates a new User record.
-func (s *Subscription) Create(userID uint, baseID uint, targetID uint) (*Subscription, error) {
+type SubscriptionRepository struct {
+	db *gorm.DB
+}
+
+// NewSubscriptionRepository creates a new SubscriptionRepository.
+func NewSubscriptionRepository(db *gorm.DB) *SubscriptionRepository {
+	return &SubscriptionRepository{db: db}
+}
+
+// Create creates a new Subscription record.
+func (repo *SubscriptionRepository) Create(userID, baseID, targetID uint) (*Subscription, error) {
 	subscription := Subscription{
 		UserID:           userID,
 		BaseCurrencyID:   baseID,
 		TargetCurrencyID: targetID,
 	}
-	result := db.Create(&subscription)
+	result := repo.db.Create(&subscription)
 	if result.Error != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(result.Error, &pgErr) && pgErr.Code == "23505" {

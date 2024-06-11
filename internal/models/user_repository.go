@@ -7,13 +7,22 @@ import (
 	"time"
 )
 
+type UserRepository struct {
+	db *gorm.DB
+}
+
+// NewUserRepository creates a new UserRepository.
+func NewUserRepository(db *gorm.DB) *UserRepository {
+	return &UserRepository{db: db}
+}
+
 // Create creates a new User record.
-func (u *User) Create(email string) (*User, error) {
+func (repo *UserRepository) Create(email string) (*User, error) {
 	user := User{
 		Email:     email,
 		CreatedAt: time.Now(),
 	}
-	result := db.Create(&user)
+	result := repo.db.Create(&user)
 	if result.Error != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(result.Error, &pgErr) && pgErr.Code == "23505" {

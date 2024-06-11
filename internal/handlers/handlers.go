@@ -32,7 +32,7 @@ type subscriptionBody struct {
 func (m *Repository) GetRate(w http.ResponseWriter, r *http.Request) {
 	price, err := rate.GetRate("USD", "UAH")
 	if err != nil {
-		_ = m.errorJSON(w, errors.New("error calling Coinbase API"), http.StatusBadRequest) // http.StatusServiceUnavailable
+		_ = m.errorJSON(w, fmt.Errorf("error getting rate update: %w", err), http.StatusBadRequest) // http.StatusServiceUnavailable
 		return
 	}
 

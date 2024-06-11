@@ -25,6 +25,11 @@ func GetRate(baseCode string, targetCode string) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("error reading the response body: %w", err)
@@ -33,7 +38,7 @@ func GetRate(baseCode string, targetCode string) (string, error) {
 	var response CoinbaseResponse
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		return "", fmt.Errorf("error unmarshaling the response: %w", err)
+		return "", fmt.Errorf("error unmarshaling the response: %w, response body: %s", err, string(body))
 	}
 
 	return response.Data.Amount, nil
