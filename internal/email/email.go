@@ -1,9 +1,10 @@
 package email
 
 import (
-	"gopkg.in/gomail.v2"
 	"log"
 	"sync"
+
+	"gopkg.in/gomail.v2"
 )
 
 // Config holds the email configuration.

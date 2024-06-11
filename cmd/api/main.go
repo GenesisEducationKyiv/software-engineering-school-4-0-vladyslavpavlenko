@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net/http"
+	"time"
+
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/scheduler"
-	"log"
-	"net/http"
 )
 
 const webPort = 8080
@@ -16,7 +18,7 @@ var app config.AppConfig
 func main() {
 	err := setup(&app)
 	if err != nil {
-		log.Fatal()
+		log.Fatal(err)
 	}
 
 	schedule := "0 10 * * *" // Every day at 10 AM
@@ -28,12 +30,13 @@ func main() {
 	log.Printf("Running on port %d", webPort)
 
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", webPort),
-		Handler: routes(),
+		Addr:              fmt.Sprintf(":%d", webPort),
+		Handler:           routes(),
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	err = srv.ListenAndServe()
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 }
