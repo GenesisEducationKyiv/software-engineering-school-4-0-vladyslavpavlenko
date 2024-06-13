@@ -25,7 +25,7 @@ func main() {
 	schedule := "0 10 * * *" // every day at 10 AM
 
 	_, err = s.ScheduleTask(schedule, func() {
-		err := handlers.Repo.NotifySubscribers()
+		err = handlers.Repo.NotifySubscribers()
 		if err != nil {
 			log.Printf("Error notifying subscribers: %v", err)
 		}

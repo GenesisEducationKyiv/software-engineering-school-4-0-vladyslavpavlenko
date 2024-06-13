@@ -5,16 +5,10 @@ import (
 	"net/http"
 )
 
-func (m *Repository) writeJSON(w http.ResponseWriter, status int, data any, headers ...http.Header) error {
+func (m *Repository) writeJSON(w http.ResponseWriter, status int, data any) error {
 	out, err := json.Marshal(data)
 	if err != nil {
 		return err
-	}
-
-	if len(headers) > 0 {
-		for key, value := range headers[0] {
-			w.Header()[key] = value
-		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -41,13 +35,4 @@ func (m *Repository) errorJSON(w http.ResponseWriter, err error, status ...int) 
 	}
 
 	return m.writeJSON(w, statusCode, payload)
-}
-
-// getCurrencyID retrieves the ID of a currency by its code.
-func (m *Repository) getCurrencyID(code string) (uint, error) {
-	currencyID, err := m.App.Models.Currency.GetIDbyCode(code)
-	if err != nil {
-		return 0, err
-	}
-	return currencyID, nil
 }
