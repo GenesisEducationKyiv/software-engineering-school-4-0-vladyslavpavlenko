@@ -13,11 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: jirutka/setup-alpine@v1
-        with:
-          branch: v3.15
-      - run: cat /etc/alpine-release
-        shell: alpine.sh {0}
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
