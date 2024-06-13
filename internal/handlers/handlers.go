@@ -76,7 +76,7 @@ func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Perform the subscription operation
-	err, code := m.SubscribeUser(body.Email, "USD", "UAH")
+	code, err := m.SubscribeUser(body.Email, "USD", "UAH")
 	if err != nil {
 		_ = m.errorJSON(w, err, code)
 		return

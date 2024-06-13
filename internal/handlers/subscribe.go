@@ -11,44 +11,44 @@ import (
 
 // SubscribeUser subscribes a user to the rate update mailing list by adding a new email to the database and
 // creating a corresponding subscription record. TODO: remove hardcoded currency codes.
-func (m *Repository) SubscribeUser(email, baseCode, targetCode string) (err error, statusCode int) {
+func (m *Repository) SubscribeUser(email, baseCode, targetCode string) (statusCode int, err error) {
 	// Validate email
 	var emailValidator validator.EmailValidator
 
 	if !emailValidator.Validate(email) {
-		return errors.New("invalid email"), http.StatusBadRequest
+		return http.StatusBadRequest, errors.New("invalid email")
 	}
 
 	// Create a user record (if not already created)
 	user, err := m.App.Models.User.Create(email)
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return fmt.Errorf("already subscribed"), http.StatusConflict
+			return http.StatusConflict, fmt.Errorf("already subscribed")
 		}
 
-		return fmt.Errorf("error creating user"), http.StatusInternalServerError
+		return http.StatusInternalServerError, fmt.Errorf("error creating user")
 	}
 
 	// Get currency IDs
 	baseCurrencyID, err := m.App.Models.Currency.GetIDbyCode(baseCode)
 	if err != nil {
-		return fmt.Errorf("error retrieving base currency"), http.StatusInternalServerError
+		return http.StatusInternalServerError, fmt.Errorf("error retrieving base currency")
 	}
 
 	targetCurrencyID, err := m.App.Models.Currency.GetIDbyCode(targetCode)
 	if err != nil {
-		return fmt.Errorf("error retrieving target currency"), http.StatusInternalServerError
+		return http.StatusInternalServerError, fmt.Errorf("error retrieving target currency")
 	}
 
 	// Create and save the subscription
 	_, err = m.App.Models.Subscription.Create(user.ID, baseCurrencyID, targetCurrencyID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return fmt.Errorf("already subscribed"), http.StatusConflict
+			return http.StatusConflict, fmt.Errorf("already subscribed")
 		}
 
-		return fmt.Errorf("error creating subscription"), http.StatusInternalServerError
+		return http.StatusInternalServerError, fmt.Errorf("error creating subscription")
 	}
 
-	return nil, http.StatusAccepted
+	return http.StatusAccepted, nil
 }
