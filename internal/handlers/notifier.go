@@ -3,17 +3,19 @@ package handlers
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"sync"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rate"
 )
 
-// NotifySubscribers handles sending emails to all the subscribers.
-func (m *Repository) NotifySubscribers() {
-	var subscriptions []models.Subscription
-	m.App.DB.Preload("User").Preload("BaseCurrency").Preload("TargetCurrency").Find(&subscriptions)
+// NotifySubscribers handles sending currency update rate emails to all the subscribers.
+func (m *Repository) NotifySubscribers() error {
+	subscriptions, err := m.App.Models.Subscription.GetSubscriptions()
+	if err != nil {
+		return err
+	}
 
 	var wg sync.WaitGroup
 	for _, subscription := range subscriptions {
@@ -22,7 +24,11 @@ func (m *Repository) NotifySubscribers() {
 		baseCode := subscription.BaseCurrency.Code
 		targetCode := subscription.TargetCurrency.Code
 
-		price, err := rate.GetRate(baseCode, targetCode)
+		fetcher := rate.CoinbaseFetcher{
+			Client: &http.Client{},
+		}
+
+		price, err := fetcher.FetchRate(baseCode, targetCode)
 		if err != nil {
 			log.Printf("Failed to retrieve rate for %s to %s: %v", baseCode, targetCode, err)
 			wg.Done()
@@ -38,4 +44,6 @@ func (m *Repository) NotifySubscribers() {
 		go email.SendEmail(&wg, m.App.EmailConfig, params)
 	}
 	wg.Wait()
+
+	return nil
 }

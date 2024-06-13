@@ -17,6 +17,7 @@ func routes() http.Handler {
 	mux.Route("/api/v1", func(mux chi.Router) {
 		mux.Get("/rate", handlers.Repo.GetRate)
 		mux.Post("/subscribe", handlers.Repo.Subscribe)
+		// TODO: add an unsubscribe route
 		mux.Post("/sendEmails", handlers.Repo.SendEmails)
 	})
 

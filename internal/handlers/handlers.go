@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rate"
-	"gorm.io/gorm"
 )
 
 type jsonResponse struct {
@@ -29,33 +28,39 @@ type subscriptionBody struct {
 	// TargetCurrencyCode string `json:"target_currency_code"`
 }
 
-// GetRate gets the current USD to UAH exchange rate.
+// GetRate handles the `/rate` request.
 func (m *Repository) GetRate(w http.ResponseWriter, _ *http.Request) {
-	price, err := rate.GetRate("USD", "UAH")
+	// Create a new Coinbase fetcher
+	fetcher := rate.CoinbaseFetcher{
+		Client: &http.Client{},
+	}
+
+	// Perform the fetching operation
+	price, err := fetcher.FetchRate("USD", "UAH")
 	if err != nil {
-		_ = m.errorJSON(w, fmt.Errorf("error getting rate update: %w", err), http.StatusBadRequest) // http.StatusServiceUnavailable
+		_ = m.errorJSON(w, fmt.Errorf("error getting rate update: %w", err), http.StatusServiceUnavailable)
 		return
 	}
 
-	rateResp := rateUpdate{
+	// Create a response
+	update := rateUpdate{
 		BaseCode:   "USD",
 		TargetCode: "UAH",
 		Price:      price,
 	}
 
-	// Send response
 	payload := jsonResponse{
 		Error: false,
-		Data:  rateResp,
+		Data:  update,
 	}
 
+	// Send the response back
 	_ = m.writeJSON(w, http.StatusOK, payload)
 }
 
-// Subscribe handles email subscriptions by adding a new email to the database and creating a corresponding subscription
-// record. By default, it sets up a USD to UAH exchange rate subscription, but the implementation allows for working
-// with any currency, as long as it exists in the `currencies` table.
+// Subscribe handles the `/subscribe` request.
 func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
+	// Parse the form
 	var body subscriptionBody
 
 	err := r.ParseMultipartForm(10 << 20)
@@ -70,55 +75,38 @@ func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !validateEmail(body.Email) {
-		_ = m.errorJSON(w, errors.New("email is invalid"))
-		return
-	}
-
-	// Create and save the user
-	user, err := m.App.Models.User.Create(body.Email)
+	// Perform the subscription operation
+	err, code := m.SubscribeUser(body.Email, "USD", "UAH")
 	if err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			_ = m.errorJSON(w, fmt.Errorf("already subscribed"), http.StatusConflict)
-		} else {
-			_ = m.errorJSON(w, fmt.Errorf("error creating user"), http.StatusInternalServerError)
-		}
+		_ = m.errorJSON(w, err, code)
 		return
 	}
 
-	// Get currency IDs
-	baseCurrencyID, err := m.getCurrencyID("USD")
-	if err != nil {
-		_ = m.errorJSON(w, fmt.Errorf("error retrieving base currency"))
-		return
-	}
-
-	targetCurrencyID, err := m.getCurrencyID("UAH")
-	if err != nil {
-		_ = m.errorJSON(w, fmt.Errorf("error retrieving target currency"))
-		return
-	}
-
-	// Create and save the subscription
-	_, err = m.App.Models.Subscription.Create(user.ID, baseCurrencyID, targetCurrencyID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			_ = m.errorJSON(w, fmt.Errorf("already subscribed"), http.StatusConflict)
-		} else {
-			_ = m.errorJSON(w, fmt.Errorf("error creating subscription"), http.StatusInternalServerError)
-		}
-		return
-	}
-
+	// Create a response
 	payload := jsonResponse{
 		Error:   false,
 		Message: "subscribed",
 	}
 
+	// Send the response back
 	_ = m.writeJSON(w, http.StatusOK, payload)
 }
 
-// SendEmails handles the /sendEmails request.
-func (m *Repository) SendEmails(_ http.ResponseWriter, _ *http.Request) {
-	m.NotifySubscribers()
+// SendEmails handles the `/sendEmails` request.
+func (m *Repository) SendEmails(w http.ResponseWriter, _ *http.Request) {
+	// Perform the mailing operation
+	err := m.NotifySubscribers()
+	if err != nil {
+		_ = m.errorJSON(w, err, http.StatusInternalServerError)
+		return
+	}
+
+	// Create a response
+	payload := jsonResponse{
+		Error:   false,
+		Message: "sent",
+	}
+
+	// Send the response back
+	_ = m.writeJSON(w, http.StatusOK, payload)
 }

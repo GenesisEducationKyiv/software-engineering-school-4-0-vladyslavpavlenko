@@ -21,11 +21,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	schedule := "0 10 * * *" // Every day at 10 AM
-	_, err = scheduler.ScheduleTask(schedule, handlers.Repo.NotifySubscribers)
+	s := scheduler.NewCronScheduler()
+	schedule := "0 10 * * *" // every day at 10 AM
+
+	_, err = s.ScheduleTask(schedule, func() {
+		err := handlers.Repo.NotifySubscribers()
+		if err != nil {
+			log.Printf("Error notifying subscribers: %v", err)
+		}
+	})
 	if err != nil {
-		log.Fatalf("failed to schedule email task: %v", err)
+		log.Fatalf("Failed to schedule mailer task: %v", err)
 	}
+	s.Start()
 
 	log.Printf("Running on port %d", webPort)
 

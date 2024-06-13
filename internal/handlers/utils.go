@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"net/mail"
 )
 
 func (m *Repository) writeJSON(w http.ResponseWriter, status int, data any, headers ...http.Header) error {
@@ -36,9 +35,10 @@ func (m *Repository) errorJSON(w http.ResponseWriter, err error, status ...int) 
 		statusCode = status[0]
 	}
 
-	var payload jsonResponse
-	payload.Error = true
-	payload.Message = err.Error()
+	payload := jsonResponse{
+		Error:   true,
+		Message: err.Error(),
+	}
 
 	return m.writeJSON(w, statusCode, payload)
 }
@@ -50,10 +50,4 @@ func (m *Repository) getCurrencyID(code string) (uint, error) {
 		return 0, err
 	}
 	return currencyID, nil
-}
-
-// validateEmail validates the email address.
-func validateEmail(email string) bool {
-	_, err := mail.ParseAddress(email)
-	return err == nil
 }

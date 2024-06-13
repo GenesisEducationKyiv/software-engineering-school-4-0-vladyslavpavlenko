@@ -17,13 +17,6 @@ func NewRepo(a *config.AppConfig) *Repository {
 	}
 }
 
-// NewTestRepo creates a new test repository
-func NewTestRepo(a *config.AppConfig) *Repository {
-	return &Repository{
-		App: a,
-	}
-}
-
 // NewHandlers sets the repository for handlers
 func NewHandlers(r *Repository) {
 	Repo = r

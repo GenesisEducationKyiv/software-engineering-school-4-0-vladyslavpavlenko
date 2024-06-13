@@ -33,3 +33,14 @@ func (repo *SubscriptionRepository) Create(userID, baseID, targetID uint) (*Subs
 	}
 	return &subscription, nil
 }
+
+// GetSubscriptions returns all the subscriptions.
+func (repo *SubscriptionRepository) GetSubscriptions() ([]Subscription, error) {
+	var subscriptions []Subscription
+	result := repo.db.Preload("User").Preload("BaseCurrency").Preload("TargetCurrency").Find(&subscriptions)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return subscriptions, nil
+}
