@@ -7,11 +7,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/gormrepo"
+
 	"github.com/joho/godotenv"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -42,7 +44,7 @@ func setup(app *config.AppConfig) error {
 	}
 
 	app.DB = db
-	app.Models = models.New(db)
+	app.Models = gormrepo.New(db)
 
 	app.EmailConfig = email.Config{
 		Email:    os.Getenv("GMAIL_EMAIL"),
@@ -96,7 +98,7 @@ func connectToDB(dsn string) (*gorm.DB, error) {
 func runDBMigrations(db *gorm.DB) error {
 	log.Println("Running migrations...")
 	// create tables
-	err := db.AutoMigrate(&models.Currency{}, &models.User{}, &models.Subscription{})
+	err := db.AutoMigrate(&dbrepo.Currency{}, &dbrepo.User{}, &dbrepo.Subscription{})
 	if err != nil {
 		return fmt.Errorf("error during migration: %w", err)
 	}
@@ -116,7 +118,7 @@ func runDBMigrations(db *gorm.DB) error {
 func createInitialCurrencies(db *gorm.DB) error {
 	var count int64
 
-	if err := db.Model(&models.Currency{}).Count(&count).Error; err != nil {
+	if err := db.Model(&dbrepo.Currency{}).Count(&count).Error; err != nil {
 		return err
 	}
 
@@ -124,7 +126,7 @@ func createInitialCurrencies(db *gorm.DB) error {
 		return nil
 	}
 
-	initialCurrencies := []models.Currency{
+	initialCurrencies := []dbrepo.Currency{
 		{Code: "USD", Name: "United States Dollar"},
 		{Code: "UAH", Name: "Ukrainian Hryvnia"},
 	}

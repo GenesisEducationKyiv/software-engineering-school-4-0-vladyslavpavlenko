@@ -1,4 +1,4 @@
-package models
+package dbrepo
 
 import (
 	"time"

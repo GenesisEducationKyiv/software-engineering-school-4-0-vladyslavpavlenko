@@ -1,4 +1,4 @@
-package models
+package dbrepo
 
 // Currency is a GORM currency model.
 type Currency struct {

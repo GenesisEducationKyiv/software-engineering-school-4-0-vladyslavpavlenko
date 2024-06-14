@@ -1,24 +1,26 @@
-package models
+package gormrepo
 
 import (
 	"errors"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
 
-type SubscriptionRepository struct {
+type GormSubscriptionRepository struct {
 	db *gorm.DB
 }
 
-// NewSubscriptionRepository creates a new SubscriptionRepository.
-func NewSubscriptionRepository(db *gorm.DB) *SubscriptionRepository {
-	return &SubscriptionRepository{db: db}
+// NewGormSubscriptionRepository creates a new GormSubscriptionRepository.
+func NewGormSubscriptionRepository(db *gorm.DB) dbrepo.SubscriptionRepository {
+	return &GormSubscriptionRepository{db: db}
 }
 
 // Create creates a new Subscription record.
-func (repo *SubscriptionRepository) Create(userID, baseID, targetID uint) (*Subscription, error) {
-	subscription := Subscription{
+func (repo *GormSubscriptionRepository) Create(userID, baseID, targetID uint) (*dbrepo.Subscription, error) {
+	subscription := dbrepo.Subscription{
 		UserID:           userID,
 		BaseCurrencyID:   baseID,
 		TargetCurrencyID: targetID,
@@ -35,8 +37,8 @@ func (repo *SubscriptionRepository) Create(userID, baseID, targetID uint) (*Subs
 }
 
 // GetSubscriptions returns all the subscriptions.
-func (repo *SubscriptionRepository) GetSubscriptions() ([]Subscription, error) {
-	var subscriptions []Subscription
+func (repo *GormSubscriptionRepository) GetSubscriptions() ([]dbrepo.Subscription, error) {
+	var subscriptions []dbrepo.Subscription
 	result := repo.db.Preload("User").Preload("BaseCurrency").Preload("TargetCurrency").Find(&subscriptions)
 	if result.Error != nil {
 		return nil, result.Error
