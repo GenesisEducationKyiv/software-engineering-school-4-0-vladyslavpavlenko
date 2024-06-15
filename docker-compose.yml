@@ -9,7 +9,7 @@ services:
       replicas: 1
     environment:
       POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASS}
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - ./app/db-data/postgres/:/var/lib/postgresql/data/

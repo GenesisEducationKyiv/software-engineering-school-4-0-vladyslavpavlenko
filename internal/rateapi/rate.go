@@ -1,4 +1,4 @@
-package rate
+package rateapi
 
 // Fetcher defines an interface for fetching rates.
 type Fetcher interface {

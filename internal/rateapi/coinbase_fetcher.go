@@ -1,4 +1,4 @@
-package rate
+package rateapi
 
 import (
 	"context"
@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"time"
-
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/validator"
 )
 
 // CoinbaseFetcher implements the Fetcher interface for Coinbase.
@@ -25,10 +24,16 @@ type CoinbaseResponse struct {
 	} `json:"data"`
 }
 
-func (f *CoinbaseFetcher) FetchRate(baseCode, targetCode string) (string, error) {
-	var currencyValidator validator.CurrencyCodeValidator
+type Code string
 
-	if !currencyValidator.Validate(baseCode) || !currencyValidator.Validate(targetCode) {
+// Validate checks if the given currency code conforms to the standard format, which consists of three uppercase letters.
+func (c Code) Validate() bool {
+	_, err := regexp.MatchString("^[A-Z]{3}$", string(c))
+	return err == nil
+}
+
+func (f *CoinbaseFetcher) FetchRate(baseCode, targetCode string) (string, error) {
+	if !Code(baseCode).Validate() || !Code(targetCode).Validate() {
 		return "", fmt.Errorf("invalid currency code provided")
 	}
 

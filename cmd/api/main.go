@@ -20,6 +20,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer app.DB.Close()
 
 	s := scheduler.NewCronScheduler()
 	schedule := "0 10 * * *" // every day at 10 AM

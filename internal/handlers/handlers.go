@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/rate"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 )
 
 type jsonResponse struct {
@@ -14,7 +14,7 @@ type jsonResponse struct {
 	Data    any    `json:"data,omitempty"`
 }
 
-// rateUpdate holds the exchange rate update data.
+// rateUpdate holds the exchange rateapi update data.
 type rateUpdate struct {
 	BaseCode   string `json:"base_code"`
 	TargetCode string `json:"target_code"`
@@ -28,17 +28,17 @@ type subscriptionBody struct {
 	// TargetCurrencyCode string `json:"target_currency_code"`
 }
 
-// GetRate handles the `/rate` request.
+// GetRate handles the `/rateapi` request.
 func (m *Repository) GetRate(w http.ResponseWriter, _ *http.Request) {
 	// Create a new Coinbase fetcher
-	fetcher := rate.CoinbaseFetcher{
+	fetcher := rateapi.CoinbaseFetcher{
 		Client: &http.Client{},
 	}
 
 	// Perform the fetching operation
 	price, err := fetcher.FetchRate("USD", "UAH")
 	if err != nil {
-		_ = m.errorJSON(w, fmt.Errorf("error getting rate update: %w", err), http.StatusServiceUnavailable)
+		_ = m.errorJSON(w, fmt.Errorf("error getting rateapi update: %w", err), http.StatusServiceUnavailable)
 		return
 	}
 

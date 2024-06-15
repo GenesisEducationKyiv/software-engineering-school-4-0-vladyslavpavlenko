@@ -1,7 +1,7 @@
 package gormrepo
 
 import (
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/models"
 	"gorm.io/gorm"
 )
 
@@ -10,13 +10,13 @@ type GormCurrencyRepository struct {
 }
 
 // NewGormCurrencyRepository creates a new GormCurrencyRepository.
-func NewGormCurrencyRepository(db *gorm.DB) dbrepo.CurrencyRepository {
-	return &GormCurrencyRepository{db: db}
+func NewGormCurrencyRepository(conn *GormDB) models.CurrencyRepository {
+	return &GormCurrencyRepository{db: conn.DB}
 }
 
 // GetIDbyCode returns the ID of the currency by its Code.
 func (repo *GormCurrencyRepository) GetIDbyCode(code string) (uint, error) {
-	var currency dbrepo.Currency
+	var currency models.Currency
 	err := repo.db.Where("code = ?", code).First(&currency).Error
 	if err != nil {
 		return 0, err

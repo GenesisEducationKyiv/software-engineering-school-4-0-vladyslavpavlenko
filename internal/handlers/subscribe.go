@@ -5,22 +5,20 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/validator"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"gorm.io/gorm"
 )
 
-// SubscribeUser subscribes a user to the rate update mailing list by adding a new email to the database and
-// creating a corresponding subscription record. TODO: remove hardcoded currency codes.
-func (m *Repository) SubscribeUser(email, baseCode, targetCode string) (statusCode int, err error) {
+// SubscribeUser subscribes a user to the rateapi update mailing list by adding a new email to the database and
+// creating a corresponding subscription record.
+func (m *Repository) SubscribeUser(emailAddr, baseCode, targetCode string) (statusCode int, err error) {
 	// Validate email
-	var emailValidator validator.EmailValidator
-
-	if !emailValidator.Validate(email) {
+	if !email.Email(emailAddr).Validate() {
 		return http.StatusBadRequest, errors.New("invalid email")
 	}
 
 	// Create a user record (if not already created)
-	user, err := m.App.Models.User.Create(email)
+	user, err := m.App.Models.User.Create(emailAddr)
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return http.StatusConflict, fmt.Errorf("already subscribed")

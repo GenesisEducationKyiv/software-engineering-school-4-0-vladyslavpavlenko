@@ -1,16 +1,57 @@
 package email
 
 import (
+	"errors"
 	"log"
+	"net/mail"
 	"sync"
 
 	"gopkg.in/gomail.v2"
 )
 
+type Email string
+
+// Validate checks if the given email address is valid.
+func (e Email) Validate() bool {
+	_, err := mail.ParseAddress(string(e))
+	return err == nil
+}
+
 // Config holds the email configuration.
 type Config struct {
 	Email    string
 	Password string
+}
+
+// NewEmailConfig creates an instance of Config.
+func NewEmailConfig(email string, password string) (Config, error) {
+	cfg := Config{
+		Email:    email,
+		Password: password,
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return Config{}, err
+	}
+
+	return cfg, nil
+}
+
+// Validate validates an instance of Config to check whether the provided parameters are correct.
+func (cfg *Config) Validate() error {
+	if cfg.Email == "" {
+		return errors.New("config email is empty")
+	}
+
+	if cfg.Password == "" {
+		return errors.New("config password is empty")
+	}
+
+	if !Email(cfg.Email).Validate() {
+		return errors.New("email is invalid")
+	}
+
+	return nil
 }
 
 // Params holds the email message data.

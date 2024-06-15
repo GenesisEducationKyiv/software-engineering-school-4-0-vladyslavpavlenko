@@ -10,14 +10,14 @@ type Repository struct {
 	App *config.AppConfig
 }
 
-// NewRepo creates a new repository
+// NewRepo creates a new Repository
 func NewRepo(a *config.AppConfig) *Repository {
 	return &Repository{
 		App: a,
 	}
 }
 
-// NewHandlers sets the repository for handlers
+// NewHandlers sets the Repository for handlers
 func NewHandlers(r *Repository) {
 	Repo = r
 }

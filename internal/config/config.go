@@ -2,13 +2,13 @@ package config
 
 import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/models"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
-	"gorm.io/gorm"
 )
 
 // AppConfig holds the application config.
 type AppConfig struct {
-	DB          *gorm.DB
-	Models      dbrepo.Models
+	DB          dbrepo.DB
+	Models      models.Models
 	EmailConfig email.Config
 }
