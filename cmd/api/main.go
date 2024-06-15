@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
@@ -32,7 +33,8 @@ func main() {
 		}
 	})
 	if err != nil {
-		log.Fatalf("Failed to schedule mailer task: %v", err)
+		log.Printf("Failed to schedule mailer task: %v", err)
+		os.Exit(1)
 	}
 	s.Start()
 
@@ -46,6 +48,7 @@ func main() {
 
 	err = srv.ListenAndServe()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("HTTP server failed: %v", err)
+		os.Exit(1)
 	}
 }

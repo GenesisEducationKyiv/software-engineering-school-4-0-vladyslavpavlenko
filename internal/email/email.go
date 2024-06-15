@@ -24,7 +24,7 @@ type Config struct {
 }
 
 // NewEmailConfig creates an instance of Config.
-func NewEmailConfig(email string, password string) (Config, error) {
+func NewEmailConfig(email, password string) (Config, error) {
 	cfg := Config{
 		Email:    email,
 		Password: password,

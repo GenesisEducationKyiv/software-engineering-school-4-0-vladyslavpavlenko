@@ -16,11 +16,11 @@ import (
 
 // envVariables holds environment variables used in the application.
 type envVariables struct {
-	DbHost    string
-	DbPort    string
-	DbUser    string
-	DbPass    string
-	DbName    string
+	DBHost    string
+	DBPort    string
+	DBUser    string
+	DBPass    string
+	DBName    string
 	EmailAddr string
 	EmailPass string
 }
@@ -32,11 +32,11 @@ func setup(app *config.AppConfig) error {
 	}
 
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable timezone=UTC connect_timeout=5",
-		envs.DbHost,
-		envs.DbPort,
-		envs.DbUser,
-		envs.DbPass,
-		envs.DbName)
+		envs.DBHost,
+		envs.DBPort,
+		envs.DBUser,
+		envs.DBPass,
+		envs.DBName)
 
 	db, err := connectDB(dsn)
 	if err != nil {
@@ -70,11 +70,11 @@ func readEnv() (envVariables, error) {
 	}
 
 	return envVariables{
-		DbHost:    os.Getenv("DB_HOST"),
-		DbPort:    os.Getenv("DB_PORT"),
-		DbUser:    os.Getenv("DB_USER"),
-		DbPass:    os.Getenv("DB_PASS"),
-		DbName:    os.Getenv("DB_NAME"),
+		DBHost:    os.Getenv("DB_HOST"),
+		DBPort:    os.Getenv("DB_PORT"),
+		DBUser:    os.Getenv("DB_USER"),
+		DBPass:    os.Getenv("DB_PASS"),
+		DBName:    os.Getenv("DB_NAME"),
 		EmailAddr: os.Getenv("EMAIL_ADDR"),
 		EmailPass: os.Getenv("EMAIL_PASS"),
 	}, nil
