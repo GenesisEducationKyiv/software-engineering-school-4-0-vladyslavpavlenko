@@ -17,9 +17,17 @@ const webPort = 8080
 var app config.AppConfig
 
 func main() {
+	err := run()
+	if err != nil {
+		log.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	err := setup(&app)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer app.DB.Close()
 
@@ -27,14 +35,13 @@ func main() {
 	schedule := "0 10 * * *" // every day at 10 AM
 
 	_, err = s.ScheduleTask(schedule, func() {
-		err = handlers.Repo.NotifySubscribers()
+		err := handlers.Repo.NotifySubscribers()
 		if err != nil {
 			log.Printf("Error notifying subscribers: %v", err)
 		}
 	})
 	if err != nil {
-		log.Printf("Failed to schedule mailer task: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to schedule mailer task: %v", err)
 	}
 	s.Start()
 
@@ -48,7 +55,8 @@ func main() {
 
 	err = srv.ListenAndServe()
 	if err != nil {
-		log.Printf("HTTP server failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("HTTP server failed: %v", err)
 	}
+
+	return nil
 }
