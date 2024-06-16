@@ -67,12 +67,12 @@ cd genesis-api-project
 ```
 ❗️Ensure you have a `.env` file in the root directory with the necessary environment variables. The `.env` should look like this:
 ```dotenv
-GMAIL_EMAIL=<GMAIL_EMAIL>
-GMAIL_PASSWORD=<GMAIL_APP_PASSWORD>
+EMAIL_ADDR=<EMAIL_ADDR>
+EMAIL_PASS=<EMAIL_PASS>
 DB_HOST=<DB_HOST>
 DB_PORT=<DB_PORT>
 DB_USER=<DB_USER>
-DB_PASSWORD=<DB_PASSWORD>
+DB_PASS=<DB_PASS>
 DB_NAME=<DB_NAME>
 ```
 
