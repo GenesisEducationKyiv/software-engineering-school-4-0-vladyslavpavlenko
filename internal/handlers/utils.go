@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func (m *Repository) writeJSON(w http.ResponseWriter, status int, data any) error {
+func writeJSON(w http.ResponseWriter, status int, data any) error {
 	out, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -22,7 +22,7 @@ func (m *Repository) writeJSON(w http.ResponseWriter, status int, data any) erro
 }
 
 // errorJSON writes the error JSON. If status is not provided, the default http.StatusBadRequest in sent.
-func (m *Repository) errorJSON(w http.ResponseWriter, err error, status ...int) error {
+func errorJSON(w http.ResponseWriter, err error, status ...int) error {
 	statusCode := http.StatusBadRequest
 
 	if len(status) > 0 {
@@ -34,5 +34,5 @@ func (m *Repository) errorJSON(w http.ResponseWriter, err error, status ...int) 
 		Message: err.Error(),
 	}
 
-	return m.writeJSON(w, statusCode, payload)
+	return writeJSON(w, statusCode, payload)
 }
