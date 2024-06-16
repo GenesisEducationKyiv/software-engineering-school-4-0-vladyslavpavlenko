@@ -38,7 +38,7 @@ func (m *Repository) GetRate(w http.ResponseWriter, _ *http.Request) {
 	// Perform the fetching operation
 	price, err := fetcher.FetchRate("USD", "UAH")
 	if err != nil {
-		_ = m.errorJSON(w, fmt.Errorf("error getting rateapi update: %w", err), http.StatusServiceUnavailable)
+		_ = ErrorJSON(w, fmt.Errorf("error getting rateapi update: %w", err), http.StatusServiceUnavailable)
 		return
 	}
 
@@ -55,7 +55,7 @@ func (m *Repository) GetRate(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	// Send the response back
-	_ = m.writeJSON(w, http.StatusOK, payload)
+	_ = WriteJSON(w, http.StatusOK, payload)
 }
 
 // Subscribe handles the `/subscribe` request.
@@ -65,20 +65,20 @@ func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
-		_ = m.errorJSON(w, errors.New("failed to parse form"))
+		_ = ErrorJSON(w, errors.New("failed to parse form"))
 		return
 	}
 
 	body.Email = r.FormValue("email")
 	if body.Email == "" {
-		_ = m.errorJSON(w, errors.New("email is required"))
+		_ = ErrorJSON(w, errors.New("email is required"))
 		return
 	}
 
 	// Perform the subscription operation
 	code, err := m.SubscribeUser(body.Email, "USD", "UAH")
 	if err != nil {
-		_ = m.errorJSON(w, err, code)
+		_ = ErrorJSON(w, err, code)
 		return
 	}
 
@@ -89,7 +89,7 @@ func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send the response back
-	_ = m.writeJSON(w, http.StatusOK, payload)
+	_ = WriteJSON(w, http.StatusOK, payload)
 }
 
 // SendEmails handles the `/sendEmails` request.
@@ -97,7 +97,7 @@ func (m *Repository) SendEmails(w http.ResponseWriter, _ *http.Request) {
 	// Perform the mailing operation
 	err := m.NotifySubscribers()
 	if err != nil {
-		_ = m.errorJSON(w, err, http.StatusInternalServerError)
+		_ = ErrorJSON(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -108,5 +108,5 @@ func (m *Repository) SendEmails(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	// Send the response back
-	_ = m.writeJSON(w, http.StatusOK, payload)
+	_ = WriteJSON(w, http.StatusOK, payload)
 }

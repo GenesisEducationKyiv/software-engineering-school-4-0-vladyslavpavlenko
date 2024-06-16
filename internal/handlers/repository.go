@@ -1,6 +1,8 @@
 package handlers
 
-import "github.com/vladyslavpavlenko/genesis-api-project/internal/config"
+import (
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
+)
 
 // Repo the repository used by the handlers
 var Repo *Repository
