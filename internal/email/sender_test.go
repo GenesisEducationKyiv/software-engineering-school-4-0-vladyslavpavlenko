@@ -29,7 +29,7 @@ func TestSendEmail_AuthError(_ *testing.T) {
 		},
 	}
 
-	go email.SendEmail(&wg, mockSender, cfg, params)
+	go email.SendEmail(mockSender, cfg, params)
 	wg.Wait()
 }
 
@@ -54,6 +54,6 @@ func TestSendEmail_InvalidEmail(_ *testing.T) {
 		},
 	}
 
-	go email.SendEmail(&wg, mockSender, cfg, params)
+	go email.SendEmail(mockSender, cfg, params)
 	wg.Wait()
 }

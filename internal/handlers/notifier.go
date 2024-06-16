@@ -24,6 +24,7 @@ func (m *Repository) NotifySubscribers() error {
 
 	var wg sync.WaitGroup
 	for _, subscription := range subscriptions {
+		log.Println("Adding to WaitGroup")
 		wg.Add(1)
 		go m.sendEmail(&wg, subscription)
 	}
@@ -65,5 +66,5 @@ func (m *Repository) sendEmail(wg *sync.WaitGroup, subscription models.Subscript
 		Dialer: gomail.NewDialer("smtp.gmail.com", 587, m.App.EmailConfig.Email, m.App.EmailConfig.Password),
 	}
 
-	email.SendEmail(wg, sender, m.App.EmailConfig, params)
+	email.SendEmail(sender, m.App.EmailConfig, params)
 }

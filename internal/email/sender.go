@@ -2,7 +2,6 @@ package email
 
 import (
 	"log"
-	"sync"
 
 	"gopkg.in/gomail.v2"
 )
@@ -25,9 +24,7 @@ type Params struct {
 }
 
 // SendEmail sends an email using the provided configuration and message data.
-func SendEmail(wg *sync.WaitGroup, sender Sender, cfg Config, params Params) {
-	defer wg.Done()
-
+func SendEmail(sender Sender, cfg Config, params Params) {
 	if err := sender.Send(cfg, params); err != nil {
 		log.Printf("Could not send email to %s: %v", params.To, err)
 	}
