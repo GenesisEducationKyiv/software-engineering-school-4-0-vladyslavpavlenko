@@ -2,11 +2,12 @@ package handlers
 
 import (
 	"fmt"
-	"gopkg.in/gomail.v2"
 	"log"
 	"net/http"
 	"strconv"
 	"sync"
+
+	"gopkg.in/gomail.v2"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/models"
 

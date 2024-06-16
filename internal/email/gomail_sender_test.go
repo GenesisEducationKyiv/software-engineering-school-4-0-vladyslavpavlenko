@@ -2,12 +2,13 @@ package email_test
 
 import (
 	"errors"
+	"testing"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email/mocks"
 	"gopkg.in/gomail.v2"
-	"testing"
 )
 
 func TestSend(t *testing.T) {
