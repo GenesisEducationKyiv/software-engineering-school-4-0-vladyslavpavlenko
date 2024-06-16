@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"gopkg.in/gomail.v2"
 	"log"
 	"net/http"
 	"strconv"
@@ -59,5 +60,9 @@ func (m *Repository) sendEmail(wg *sync.WaitGroup, subscription models.Subscript
 		Body:    fmt.Sprintf("The current exchange rate for %s to %s is %.2f.", baseCode, targetCode, floatPrice),
 	}
 
-	email.SendEmail(wg, m.App.EmailConfig, params)
+	sender := &email.GomailSender{
+		Dialer: gomail.NewDialer("smtp.gmail.com", 587, m.App.EmailConfig.Email, m.App.EmailConfig.Password),
+	}
+
+	email.SendEmail(wg, sender, m.App.EmailConfig, params)
 }
