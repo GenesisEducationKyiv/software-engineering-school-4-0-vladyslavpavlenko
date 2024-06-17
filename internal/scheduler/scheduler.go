@@ -8,4 +8,5 @@ import (
 type Scheduler interface {
 	ScheduleTask(schedule string, task func()) (cron.EntryID, error)
 	Start()
+	Stop()
 }

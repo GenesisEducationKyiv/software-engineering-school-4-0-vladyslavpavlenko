@@ -27,3 +27,8 @@ func (s *CronScheduler) ScheduleTask(schedule string, task func()) (cron.EntryID
 func (s *CronScheduler) Start() {
 	s.Cron.Start()
 }
+
+// Stop stops the cron scheduler.
+func (s *CronScheduler) Stop() {
+	s.Cron.Stop()
+}
