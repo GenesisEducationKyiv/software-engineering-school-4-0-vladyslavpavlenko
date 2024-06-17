@@ -5,19 +5,19 @@ import (
 	"gorm.io/gorm"
 )
 
-type GormCurrencyRepository struct {
-	db *gorm.DB
+type CurrencyRepository struct {
+	DB *gorm.DB
 }
 
 // NewGormCurrencyRepository creates a new GormCurrencyRepository.
 func NewGormCurrencyRepository(conn *GormDB) models.CurrencyRepository {
-	return &GormCurrencyRepository{db: conn.DB}
+	return &CurrencyRepository{DB: conn.DB}
 }
 
 // GetIDbyCode returns the ID of the currency by its Code.
-func (repo *GormCurrencyRepository) GetIDbyCode(code string) (uint, error) {
+func (c *CurrencyRepository) GetIDbyCode(code string) (uint, error) {
 	var currency models.Currency
-	err := repo.db.Where("code = ?", code).First(&currency).Error
+	err := c.DB.Where("code = ?", code).First(&currency).Error
 	if err != nil {
 		return 0, err
 	}

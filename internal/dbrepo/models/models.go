@@ -1,6 +1,6 @@
 package models
 
-// Models stores repositories of each data model, provided that it is also added in the New function.
+// Models stores repositories of each data model.
 type Models struct {
 	User         UserRepository
 	Currency     CurrencyRepository

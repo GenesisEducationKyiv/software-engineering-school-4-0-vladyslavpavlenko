@@ -25,11 +25,11 @@ func main() {
 }
 
 func run() error {
-	err := setup(&app)
+	db, err := setup(&app)
 	if err != nil {
 		return err
 	}
-	defer app.DB.Close()
+	defer db.Close()
 
 	s := scheduler.NewCronScheduler()
 	schedule := "0 10 * * *" // every day at 10 AM

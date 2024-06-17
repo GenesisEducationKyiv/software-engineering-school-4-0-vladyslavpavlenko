@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 
+	"github.com/kelseyhightower/envconfig"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/gormrepo"
 
-	"github.com/joho/godotenv"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
@@ -16,23 +16,23 @@ import (
 
 // envVariables holds environment variables used in the application.
 type envVariables struct {
-	DBHost    string
-	DBPort    string
-	DBUser    string
-	DBPass    string
-	DBName    string
-	EmailAddr string
-	EmailPass string
+	DBURL     string `envconfig:"DB_URL"`
+	DBPort    string `envconfig:"DB_PORT"`
+	DBUser    string `envconfig:"DB_USER"`
+	DBPass    string `envconfig:"DB_PASS"`
+	DBName    string `envconfig:"DB_NAME"`
+	EmailAddr string `envconfig:"EMAIL_ADDR"`
+	EmailPass string `envconfig:"EMAIL_PASS"`
 }
 
-func setup(app *config.AppConfig) error {
+func setup(app *config.AppConfig) (dbrepo.DB, error) {
 	envs, err := readEnv()
 	if err != nil {
-		return fmt.Errorf("error reading the .env file: %w", err)
+		return nil, fmt.Errorf("error reading the .env file: %w", err)
 	}
 
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable timezone=UTC connect_timeout=5",
-		envs.DBHost,
+		envs.DBURL,
 		envs.DBPort,
 		envs.DBUser,
 		envs.DBPass,
@@ -40,44 +40,35 @@ func setup(app *config.AppConfig) error {
 
 	db, err := connectDB(dsn)
 	if err != nil {
-		return fmt.Errorf("error conntecting to the database: %w", err)
+		return nil, fmt.Errorf("error conntecting to the database: %w", err)
 	}
 
 	err = migrateDB(db)
 	if err != nil {
-		return fmt.Errorf("error runnning database migrations: %w", err)
+		return nil, fmt.Errorf("error runnning database migrations: %w", err)
 	}
 
-	app.DB = db
 	app.Models = gormrepo.NewModels(db)
 
 	app.EmailConfig, err = email.NewEmailConfig(envs.EmailAddr, envs.EmailPass)
 	if err != nil {
-		return errors.New("error setting up email configuration")
+		return nil, errors.New("error setting up email configuration")
 	}
 
-	repo := handlers.NewRepo(app)
+	repo := handlers.NewRepo(app, db)
 	handlers.NewHandlers(repo)
 
-	return nil
+	return db, nil
 }
 
 // readEnv reads and returns the environmental variables as an envVariables object.
 func readEnv() (envVariables, error) {
-	err := godotenv.Load()
+	var envs envVariables
+	err := envconfig.Process("", &envs)
 	if err != nil {
 		return envVariables{}, err
 	}
-
-	return envVariables{
-		DBHost:    os.Getenv("DB_HOST"),
-		DBPort:    os.Getenv("DB_PORT"),
-		DBUser:    os.Getenv("DB_USER"),
-		DBPass:    os.Getenv("DB_PASS"),
-		DBName:    os.Getenv("DB_NAME"),
-		EmailAddr: os.Getenv("EMAIL_ADDR"),
-		EmailPass: os.Getenv("EMAIL_PASS"),
-	}, nil
+	return envs, nil
 }
 
 // connectDB sets up a GORM database connection and returns an interface.

@@ -3,23 +3,44 @@ package handlers_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
 )
 
+// MockDB is a mock implementation of the dbrepo.DB interface
+type MockDB struct{}
+
+func (m *MockDB) Connect(_ string) error {
+	return nil
+}
+
+func (m *MockDB) Close() error {
+	return nil
+}
+
+func (m *MockDB) Migrate() error {
+	return nil
+}
+
+func (m *MockDB) SomeDBFunction() error {
+	return nil
+}
+
 func TestNewRepo(t *testing.T) {
 	appConfig := &config.AppConfig{}
-	repo := handlers.NewRepo(appConfig)
-	if repo.App != appConfig {
-		t.Errorf("NewRepo() failed, expected AppConfig to be %v, got %v", appConfig, repo.App)
-	}
+	mockDB := &MockDB{}
+
+	repo := handlers.NewRepo(appConfig, mockDB)
+	assert.Equal(t, appConfig, repo.App, "AppConfig should be correctly assigned in NewRepo")
+	assert.Equal(t, mockDB, repo.DB, "DB should be correctly assigned in NewRepo")
 }
 
 func TestNewHandlers(t *testing.T) {
 	appConfig := &config.AppConfig{}
-	repo := handlers.NewRepo(appConfig)
+	mockDB := &MockDB{}
+
+	repo := handlers.NewRepo(appConfig, mockDB)
 	handlers.NewHandlers(repo)
-	if handlers.Repo != repo {
-		t.Errorf("NewHandlers() failed, expected Repo to be %v, got %v", repo, handlers.Repo)
-	}
+	assert.Equal(t, repo, handlers.Repo, "Repo should be correctly set by NewHandlers")
 }

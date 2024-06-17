@@ -18,7 +18,7 @@ func (m *Repository) SubscribeUser(emailAddr, baseCode, targetCode string) (stat
 	}
 
 	// Create a user record (if not already created)
-	user, err := m.App.Models.User.Create(emailAddr)
+	userID, err := m.App.Models.User.Create(emailAddr)
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return http.StatusConflict, fmt.Errorf("already subscribed")
@@ -39,7 +39,7 @@ func (m *Repository) SubscribeUser(emailAddr, baseCode, targetCode string) (stat
 	}
 
 	// Create and save the subscription
-	_, err = m.App.Models.Subscription.Create(user.ID, baseCurrencyID, targetCurrencyID)
+	err = m.App.Models.Subscription.Create(userID, baseCurrencyID, targetCurrencyID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return http.StatusConflict, fmt.Errorf("already subscribed")

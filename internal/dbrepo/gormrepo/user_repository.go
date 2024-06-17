@@ -10,28 +10,28 @@ import (
 	"gorm.io/gorm"
 )
 
-type GormUserRepository struct {
-	db *gorm.DB
+type UserRepository struct {
+	DB *gorm.DB
 }
 
 // NewGormUserRepository creates a new GormUserRepository.
 func NewGormUserRepository(conn *GormDB) models.UserRepository {
-	return &GormUserRepository{db: conn.DB}
+	return &UserRepository{DB: conn.DB}
 }
 
 // Create creates a new User record.
-func (repo *GormUserRepository) Create(email string) (*models.User, error) {
+func (u *UserRepository) Create(email string) (uint, error) {
 	user := models.User{
 		Email:     email,
 		CreatedAt: time.Now(),
 	}
-	result := repo.db.Create(&user)
+	result := u.DB.Create(&user)
 	if result.Error != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(result.Error, &pgErr) && pgErr.Code == "23505" {
-			return nil, gorm.ErrDuplicatedKey
+			return 0, gorm.ErrDuplicatedKey
 		}
-		return nil, result.Error
+		return 0, result.Error
 	}
-	return &user, nil
+	return user.ID, nil
 }

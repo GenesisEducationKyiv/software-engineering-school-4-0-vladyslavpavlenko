@@ -9,37 +9,37 @@ import (
 	"gorm.io/gorm"
 )
 
-type GormSubscriptionRepository struct {
-	db *gorm.DB
+type SubscriptionRepository struct {
+	DB *gorm.DB
 }
 
 // NewGormSubscriptionRepository creates a new GormSubscriptionRepository.
 func NewGormSubscriptionRepository(conn *GormDB) models.SubscriptionRepository {
-	return &GormSubscriptionRepository{db: conn.DB}
+	return &SubscriptionRepository{DB: conn.DB}
 }
 
 // Create creates a new Subscription record.
-func (repo *GormSubscriptionRepository) Create(userID, baseID, targetID uint) (*models.Subscription, error) {
+func (s *SubscriptionRepository) Create(userID, baseID, targetID uint) error {
 	subscription := models.Subscription{
 		UserID:           userID,
 		BaseCurrencyID:   baseID,
 		TargetCurrencyID: targetID,
 	}
-	result := repo.db.Create(&subscription)
+	result := s.DB.Create(&subscription)
 	if result.Error != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(result.Error, &pgErr) && pgErr.Code == "23505" {
-			return nil, gorm.ErrDuplicatedKey
+			return gorm.ErrDuplicatedKey
 		}
-		return nil, result.Error
+		return result.Error
 	}
-	return &subscription, nil
+	return nil
 }
 
 // GetSubscriptions returns all the subscriptions.
-func (repo *GormSubscriptionRepository) GetSubscriptions() ([]models.Subscription, error) {
+func (s *SubscriptionRepository) GetSubscriptions() ([]models.Subscription, error) {
 	var subscriptions []models.Subscription
-	result := repo.db.Preload("User").Preload("BaseCurrency").Preload("TargetCurrency").Find(&subscriptions)
+	result := s.DB.Preload("User").Preload("BaseCurrency").Preload("TargetCurrency").Find(&subscriptions)
 	if result.Error != nil {
 		return nil, result.Error
 	}

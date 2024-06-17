@@ -49,7 +49,6 @@ func openDB(dsn string) (*gorm.DB, error) {
 	return db, nil
 }
 
-// Close implements the DB interface for GormDB.
 func (g *GormDB) Close() error {
 	sqlDB, err := g.DB.DB()
 	if err != nil {
