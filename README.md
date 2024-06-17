@@ -26,8 +26,6 @@ This endpoint returns the current `USD to UAH` exchange rate using the Coinbase 
 
 This endpoint adds an email address to the database and automatically subscribes it to the USD to UAH exchange rate newsletter.
 
-_The code includes the ability to subscribe to other rates for future development, but this functionality is not currently used to fulfill the requirements._
-
 #### Parameters
 ``email`` **string** (formData): The email address to be added to the database and the mailing list.
 

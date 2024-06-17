@@ -5,57 +5,36 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/coinbase"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/utils"
 )
-
-type jsonResponse struct {
-	Error   bool   `json:"error"`
-	Message string `json:"message,omitempty"`
-	Data    any    `json:"data,omitempty"`
-}
-
-// rateUpdate holds the exchange rateapi update data.
-type rateUpdate struct {
-	BaseCode   string `json:"base_code"`
-	TargetCode string `json:"target_code"`
-	Price      string `json:"price"`
-}
-
-// subscriptionBody is the email subscription request body structure.
-type subscriptionBody struct {
-	Email string `json:"email"`
-	// BaseCurrencyCode   string `json:"base_currency_code"`
-	// TargetCurrencyCode string `json:"target_currency_code"`
-}
 
 // GetRate handles the `/rateapi` request.
 func (m *Repository) GetRate(w http.ResponseWriter, _ *http.Request) {
 	// Create a new Coinbase fetcher
-	fetcher := coinbase.Fetcher{
+	fetcher := rateapi.Fetcher{
 		Client: &http.Client{},
 	}
 
 	// Perform the fetching operation
-	price, err := fetcher.FetchRate("USD", "UAH")
+	price, err := fetcher.Fetch()
 	if err != nil {
-		_ = ErrorJSON(w, fmt.Errorf("error getting rateapi update: %w", err), http.StatusServiceUnavailable)
+		_ = utils.ErrorJSON(w, fmt.Errorf("error fetching rate update: %w", err), http.StatusServiceUnavailable)
 		return
 	}
 
 	// Create a response
-	update := rateUpdate{
-		BaseCode:   "USD",
-		TargetCode: "UAH",
-		Price:      price,
-	}
-
-	payload := jsonResponse{
+	payload := utils.JSONResponse{
 		Error: false,
-		Data:  update,
+		Data: rateUpdate{
+			BaseCode:   "USD",
+			TargetCode: "UAH",
+			Price:      price,
+		},
 	}
 
 	// Send the response back
-	_ = WriteJSON(w, http.StatusOK, payload)
+	_ = utils.WriteJSON(w, http.StatusOK, payload)
 }
 
 // Subscribe handles the `/subscribe` request.
@@ -65,31 +44,31 @@ func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
-		_ = ErrorJSON(w, errors.New("failed to parse form"))
+		_ = utils.ErrorJSON(w, errors.New("failed to parse form"))
 		return
 	}
 
 	body.Email = r.FormValue("email")
 	if body.Email == "" {
-		_ = ErrorJSON(w, errors.New("email is required"))
+		_ = utils.ErrorJSON(w, errors.New("email is required"))
 		return
 	}
 
 	// Perform the subscription operation
-	code, err := m.SubscribeUser(body.Email, "USD", "UAH")
+	code, err := m.SubscribeUser(body.Email)
 	if err != nil {
-		_ = ErrorJSON(w, err, code)
+		_ = utils.ErrorJSON(w, err, code)
 		return
 	}
 
 	// Create a response
-	payload := jsonResponse{
+	payload := utils.JSONResponse{
 		Error:   false,
 		Message: "subscribed",
 	}
 
 	// Send the response back
-	_ = WriteJSON(w, http.StatusOK, payload)
+	_ = utils.WriteJSON(w, http.StatusOK, payload)
 }
 
 // SendEmails handles the `/sendEmails` request.
@@ -97,16 +76,16 @@ func (m *Repository) SendEmails(w http.ResponseWriter, _ *http.Request) {
 	// Perform the mailing operation
 	err := m.NotifySubscribers()
 	if err != nil {
-		_ = ErrorJSON(w, err, http.StatusInternalServerError)
+		_ = utils.ErrorJSON(w, err, http.StatusInternalServerError)
 		return
 	}
 
 	// Create a response
-	payload := jsonResponse{
+	payload := utils.JSONResponse{
 		Error:   false,
 		Message: "sent",
 	}
 
 	// Send the response back
-	_ = WriteJSON(w, http.StatusOK, payload)
+	_ = utils.WriteJSON(w, http.StatusOK, payload)
 }

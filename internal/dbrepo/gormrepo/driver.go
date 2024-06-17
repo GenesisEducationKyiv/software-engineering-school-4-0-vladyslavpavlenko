@@ -1,12 +1,11 @@
 package gormrepo
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"time"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/models"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -58,38 +57,9 @@ func (g *GormDB) Close() error {
 }
 
 func (g *GormDB) Migrate() error {
-	err := g.DB.AutoMigrate(&models.Currency{}, &models.User{}, &models.Subscription{})
+	err := g.DB.AutoMigrate(&models.Subscription{})
 	if err != nil {
 		return fmt.Errorf("error during migration: %w", err)
-	}
-
-	err = createInitialCurrencies(g)
-	if err != nil {
-		return errors.New(fmt.Sprint("error creating initial currencies:", err))
-	}
-
-	return nil
-}
-
-// createInitialCurrencies creates initial currencies in the `currencies` table.
-func createInitialCurrencies(conn *GormDB) error {
-	var count int64
-
-	if err := conn.DB.Model(&models.Currency{}).Count(&count).Error; err != nil {
-		return err
-	}
-
-	if count > 0 {
-		return nil
-	}
-
-	initialCurrencies := []models.Currency{
-		{Code: "USD", Name: "United States Dollar"},
-		{Code: "UAH", Name: "Ukrainian Hryvnia"},
-	}
-
-	if err := conn.DB.Create(&initialCurrencies).Error; err != nil {
-		return err
 	}
 
 	return nil

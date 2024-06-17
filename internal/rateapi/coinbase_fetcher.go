@@ -1,4 +1,4 @@
-package coinbase
+package rateapi
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 )
+
+const URL = "https://api.coinbase.com/v2/prices/USD-UAH/buy"
 
 // HTTPClient defines the interface for an HTTP client.
 type HTTPClient interface {
@@ -26,16 +26,6 @@ func NewCoinbaseFetcher(client HTTPClient) *Fetcher {
 	return &Fetcher{Client: client}
 }
 
-// MockHTTPClient defines the interface for a mock HTTP client.
-type MockHTTPClient struct {
-	Resp *http.Response
-	Err  error
-}
-
-func (m *MockHTTPClient) Do(_ *http.Request) (*http.Response, error) {
-	return m.Resp, m.Err
-}
-
 // Response is the Coinbase API response structure.
 type Response struct {
 	Data struct {
@@ -45,17 +35,11 @@ type Response struct {
 	} `json:"data"`
 }
 
-func (f *Fetcher) FetchRate(baseCode, targetCode string) (string, error) {
-	if !rateapi.Code(baseCode).Validate() || !rateapi.Code(targetCode).Validate() {
-		return "", fmt.Errorf("invalid currency code provided")
-	}
-
-	url := fmt.Sprintf("https://api.coinbase.com/v2/prices/%s-%s/buy", baseCode, targetCode)
-
+func (f *Fetcher) Fetch() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
+	req, _ := http.NewRequestWithContext(ctx, "GET", URL, http.NoBody)
 
 	resp, err := f.Client.Do(req)
 	if err != nil {

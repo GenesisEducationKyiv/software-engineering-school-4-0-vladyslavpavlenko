@@ -6,11 +6,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/coinbase"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 
 	"github.com/kelseyhightower/envconfig"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/gormrepo"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
@@ -40,29 +40,28 @@ func setup(app *config.AppConfig) (dbrepo.DB, error) {
 		envs.DBPass,
 		envs.DBName)
 
-	db, err := connectDB(dsn)
+	dbconn, err := connectDB(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("error conntecting to the database: %w", err)
 	}
 
-	err = migrateDB(db)
+	err = migrateDB(dbconn)
 	if err != nil {
 		return nil, fmt.Errorf("error runnning database migrations: %w", err)
 	}
-
-	app.Models = gormrepo.NewModels(db)
 
 	app.EmailConfig, err = email.NewEmailConfig(envs.EmailAddr, envs.EmailPass)
 	if err != nil {
 		return nil, errors.New("error setting up email configuration")
 	}
 
-	fetcher := coinbase.NewCoinbaseFetcher(&http.Client{})
+	fetcher := rateapi.NewCoinbaseFetcher(&http.Client{})
+	subscription := gormrepo.NewSubscriptionRepository(dbconn)
 
-	repo := handlers.NewRepo(app, db, fetcher)
+	repo := handlers.NewRepo(app, fetcher, subscription)
 	handlers.NewHandlers(repo)
 
-	return db, nil
+	return dbconn, nil
 }
 
 // readEnv reads and returns the environmental variables as an envVariables object.

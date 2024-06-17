@@ -29,11 +29,11 @@ func main() {
 }
 
 func run() error {
-	db, err := setup(&app)
+	dbconn, err := setup(&app)
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer dbconn.Close()
 
 	s := scheduler.NewCronScheduler()
 	schedule := "0 10 * * *" // every day at 10 AM
