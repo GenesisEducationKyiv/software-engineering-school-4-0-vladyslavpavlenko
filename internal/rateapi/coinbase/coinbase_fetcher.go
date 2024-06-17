@@ -1,4 +1,4 @@
-package rateapi
+package coinbase
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 )
 
 // HTTPClient defines the interface for an HTTP client.
@@ -14,9 +16,14 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// CoinbaseFetcher implements the Fetcher interface for Coinbase.
-type CoinbaseFetcher struct {
+// Fetcher implements the Fetcher interface for Coinbase.
+type Fetcher struct {
 	Client HTTPClient
+}
+
+// NewCoinbaseFetcher creates and returns a pointer to a new CoinbaseFetcher.
+func NewCoinbaseFetcher(client HTTPClient) *Fetcher {
+	return &Fetcher{Client: client}
 }
 
 // MockHTTPClient defines the interface for a mock HTTP client.
@@ -29,8 +36,8 @@ func (m *MockHTTPClient) Do(_ *http.Request) (*http.Response, error) {
 	return m.Resp, m.Err
 }
 
-// CoinbaseResponse is the Coinbase API response structure.
-type CoinbaseResponse struct {
+// Response is the Coinbase API response structure.
+type Response struct {
 	Data struct {
 		Amount   string `json:"amount"`
 		Base     string `json:"base"`
@@ -38,8 +45,8 @@ type CoinbaseResponse struct {
 	} `json:"data"`
 }
 
-func (f *CoinbaseFetcher) FetchRate(baseCode, targetCode string) (string, error) {
-	if !Code(baseCode).Validate() || !Code(targetCode).Validate() {
+func (f *Fetcher) FetchRate(baseCode, targetCode string) (string, error) {
+	if !rateapi.Code(baseCode).Validate() || !rateapi.Code(targetCode).Validate() {
 		return "", fmt.Errorf("invalid currency code provided")
 	}
 
@@ -65,11 +72,11 @@ func (f *CoinbaseFetcher) FetchRate(baseCode, targetCode string) (string, error)
 		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	var response CoinbaseResponse
-	err = json.Unmarshal(body, &response)
+	var r Response
+	err = json.Unmarshal(body, &r)
 	if err != nil {
 		return "", fmt.Errorf("error unmarshaling the response: %w, response body: %s", err, string(body))
 	}
 
-	return response.Data.Amount, nil
+	return r.Data.Amount, nil
 }

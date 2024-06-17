@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"strconv"
 	"sync"
 
@@ -12,8 +11,12 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/models"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 )
+
+// Fetcher defines an interface for fetching rates.
+type Fetcher interface {
+	FetchRate(baseCode, targetCode string) (string, error)
+}
 
 // NotifySubscribers handles sending currency update emails to all the subscribers.
 func (m *Repository) NotifySubscribers() error {
@@ -40,11 +43,7 @@ func (m *Repository) sendEmail(wg *sync.WaitGroup, subscription models.Subscript
 	baseCode := subscription.BaseCurrency.Code
 	targetCode := subscription.TargetCurrency.Code
 
-	fetcher := rateapi.CoinbaseFetcher{
-		Client: &http.Client{},
-	}
-
-	price, err := fetcher.FetchRate(baseCode, targetCode)
+	price, err := m.Fetcher.FetchRate(baseCode, targetCode)
 	if err != nil {
 		log.Printf("Failed to retrieve rate for %s to %s: %v", baseCode, targetCode, err)
 		return

@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/coinbase"
 
 	"github.com/kelseyhightower/envconfig"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/gormrepo"
-
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
 )
@@ -55,7 +57,9 @@ func setup(app *config.AppConfig) (dbrepo.DB, error) {
 		return nil, errors.New("error setting up email configuration")
 	}
 
-	repo := handlers.NewRepo(app, db)
+	fetcher := coinbase.NewCoinbaseFetcher(&http.Client{})
+
+	repo := handlers.NewRepo(app, db, fetcher)
 	handlers.NewHandlers(repo)
 
 	return db, nil

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/coinbase"
 )
 
 type jsonResponse struct {
@@ -31,7 +31,7 @@ type subscriptionBody struct {
 // GetRate handles the `/rateapi` request.
 func (m *Repository) GetRate(w http.ResponseWriter, _ *http.Request) {
 	// Create a new Coinbase fetcher
-	fetcher := rateapi.CoinbaseFetcher{
+	fetcher := coinbase.Fetcher{
 		Client: &http.Client{},
 	}
 

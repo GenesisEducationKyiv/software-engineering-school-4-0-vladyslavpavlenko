@@ -1,4 +1,4 @@
-package rateapi_test
+package coinbase_test
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/coinbase"
 )
 
 func TestFetchRate(t *testing.T) {
@@ -22,8 +22,7 @@ func TestFetchRate(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	client := &http.Client{}
-	fetcher := rateapi.CoinbaseFetcher{Client: client}
+	fetcher := coinbase.NewCoinbaseFetcher(&http.Client{})
 
 	tests := []struct {
 		name       string
@@ -51,10 +50,10 @@ func TestFetchRate(t *testing.T) {
 }
 
 func TestFetchRate_NetworkError(t *testing.T) {
-	mockClient := &rateapi.MockHTTPClient{
+	mockClient := &coinbase.MockHTTPClient{
 		Err: fmt.Errorf("network error"),
 	}
-	fetcher := rateapi.CoinbaseFetcher{Client: mockClient}
+	fetcher := coinbase.Fetcher{Client: mockClient}
 	_, err := fetcher.FetchRate("USD", "UAH")
 	if err == nil {
 		t.Errorf("Expected network error, got none")
@@ -66,10 +65,10 @@ func TestFetchRate_NonOKStatusCode(t *testing.T) {
 		StatusCode: http.StatusInternalServerError,
 		Body:       io.NopCloser(bytes.NewBufferString("Internal Server Error")),
 	}
-	mockClient := &rateapi.MockHTTPClient{
+	mockClient := &coinbase.MockHTTPClient{
 		Resp: mockResp,
 	}
-	fetcher := rateapi.CoinbaseFetcher{Client: mockClient}
+	fetcher := coinbase.Fetcher{Client: mockClient}
 	_, err := fetcher.FetchRate("USD", "UAH")
 	if err == nil {
 		t.Errorf("Expected error for non-OK status code, got none")
@@ -81,10 +80,10 @@ func TestFetchRate_ReadBodyError(t *testing.T) {
 		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(errReader{}),
 	}
-	mockClient := &rateapi.MockHTTPClient{
+	mockClient := &coinbase.MockHTTPClient{
 		Resp: mockResp,
 	}
-	fetcher := rateapi.CoinbaseFetcher{Client: mockClient}
+	fetcher := coinbase.Fetcher{Client: mockClient}
 	_, err := fetcher.FetchRate("USD", "EUR")
 	if err == nil {
 		t.Errorf("Expected error reading the body, got none")
@@ -102,10 +101,10 @@ func TestFetchRate_UnmarshalError(t *testing.T) {
 		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(bytes.NewBufferString(`{"invalid_json"}`)),
 	}
-	mockClient := &rateapi.MockHTTPClient{
+	mockClient := &coinbase.MockHTTPClient{
 		Resp: mockResp,
 	}
-	fetcher := rateapi.CoinbaseFetcher{Client: mockClient}
+	fetcher := coinbase.Fetcher{Client: mockClient}
 	_, err := fetcher.FetchRate("USD", "EUR")
 	if err == nil {
 		t.Errorf("Expected JSON unmarshal error, got none")

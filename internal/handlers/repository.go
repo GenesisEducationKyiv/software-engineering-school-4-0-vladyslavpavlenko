@@ -10,15 +10,17 @@ var Repo *Repository
 
 // Repository is the repository type
 type Repository struct {
-	App *config.AppConfig
-	DB  dbrepo.DB
+	App     *config.AppConfig
+	DB      dbrepo.DB
+	Fetcher Fetcher
 }
 
 // NewRepo creates a new Repository
-func NewRepo(a *config.AppConfig, db dbrepo.DB) *Repository {
+func NewRepo(a *config.AppConfig, db dbrepo.DB, fetcher Fetcher) *Repository {
 	return &Repository{
-		App: a,
-		DB:  db,
+		App:     a,
+		DB:      db,
+		Fetcher: fetcher,
 	}
 }
 
