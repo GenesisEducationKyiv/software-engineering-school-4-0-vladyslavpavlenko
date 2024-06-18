@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 
+	"gopkg.in/gomail.v2"
+
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 
@@ -56,9 +58,12 @@ func setup(app *config.AppConfig) (dbrepo.DB, error) {
 	}
 
 	fetcher := rateapi.NewCoinbaseFetcher(&http.Client{})
-	subscription := gormrepo.NewSubscriptionRepository(dbconn)
+	subscriber := gormrepo.NewSubscriptionRepository(dbconn)
+	sender := &email.GomailSender{
+		Dialer: gomail.NewDialer("smtp.gmail.com", 587, envs.EmailAddr, envs.EmailPass),
+	}
 
-	repo := handlers.NewRepo(app, fetcher, subscription)
+	repo := handlers.NewRepo(app, fetcher, subscriber, sender)
 	handlers.NewHandlers(repo)
 
 	return dbconn, nil

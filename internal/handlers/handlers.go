@@ -9,9 +9,16 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/utils"
 )
 
+// rateUpdate holds the exchange rateapi update data.
+type rateUpdate struct {
+	BaseCode   string `json:"base_code"`
+	TargetCode string `json:"target_code"`
+	Price      string `json:"price"`
+}
+
 // GetRate handles the `/rateapi` request.
 func (m *Repository) GetRate(w http.ResponseWriter, _ *http.Request) {
-	// Create a new Coinbase fetcher
+	// AddSubscription a new Coinbase fetcher
 	fetcher := rateapi.Fetcher{
 		Client: &http.Client{},
 	}
@@ -23,7 +30,7 @@ func (m *Repository) GetRate(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	// Create a response
+	// AddSubscription a response
 	payload := utils.JSONResponse{
 		Error: false,
 		Data: rateUpdate{
@@ -35,6 +42,11 @@ func (m *Repository) GetRate(w http.ResponseWriter, _ *http.Request) {
 
 	// Send the response back
 	_ = utils.WriteJSON(w, http.StatusOK, payload)
+}
+
+// subscriptionBody is the email subscription request body structure.
+type subscriptionBody struct {
+	Email string `json:"email"`
 }
 
 // Subscribe handles the `/subscribe` request.
@@ -61,7 +73,7 @@ func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create a response
+	// AddSubscription a response
 	payload := utils.JSONResponse{
 		Error:   false,
 		Message: "subscribed",
@@ -80,7 +92,7 @@ func (m *Repository) SendEmails(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	// Create a response
+	// AddSubscription a response
 	payload := utils.JSONResponse{
 		Error:   false,
 		Message: "sent",

@@ -21,7 +21,7 @@ func NewSubscriptionRepository(db *GormDB) *SubscriptionRepository {
 }
 
 // Create creates a new Subscription record.
-func (s *SubscriptionRepository) Create(email string) error {
+func (s *SubscriptionRepository) AddSubscription(email string) error {
 	subscription := models.Subscription{
 		Email:     email,
 		CreatedAt: time.Now(),
@@ -38,7 +38,7 @@ func (s *SubscriptionRepository) Create(email string) error {
 }
 
 // GetAll returns all the subscriptions.
-func (s *SubscriptionRepository) GetAll() ([]models.Subscription, error) {
+func (s *SubscriptionRepository) GetSubscriptions() ([]models.Subscription, error) {
 	var subscriptions []models.Subscription
 	result := s.DB.Find(&subscriptions)
 	if result.Error != nil {

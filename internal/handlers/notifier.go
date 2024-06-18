@@ -8,25 +8,28 @@ import (
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 
-	"gopkg.in/gomail.v2"
-
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 )
+
+// Sender defines an interface for sending emails.
+type Sender interface {
+	Send(emailConfig email.Config, params email.Params) error
+}
 
 // Fetcher interface defines an interface for fetching rates.
 type Fetcher interface {
 	Fetch() (string, error)
 }
 
-// Subscription interface defines methods to access models.Subscription data.
-type Subscription interface {
-	Create(string) error
-	GetAll() ([]models.Subscription, error)
+// Subscriber interface defines methods to access models.Subscription data.
+type Subscriber interface {
+	AddSubscription(string) error
+	GetSubscriptions() ([]models.Subscription, error)
 }
 
 // NotifySubscribers handles sending currency update emails to all the subscribers.
 func (m *Repository) NotifySubscribers() error {
-	subscriptions, err := m.Subscription.GetAll()
+	subscriptions, err := m.Subscriber.GetSubscriptions()
 	if err != nil {
 		return err
 	}
@@ -35,7 +38,12 @@ func (m *Repository) NotifySubscribers() error {
 	for _, subscription := range subscriptions {
 		log.Println("Adding to WaitGroup")
 		wg.Add(1)
-		go m.sendEmail(&wg, subscription)
+		go func() {
+			err = m.sendEmail(&wg, subscription)
+			if err != nil {
+				log.Println(err)
+			}
+		}()
 	}
 	wg.Wait()
 
@@ -43,19 +51,17 @@ func (m *Repository) NotifySubscribers() error {
 }
 
 // sendEmail is a controller function to prepare and send emails
-func (m *Repository) sendEmail(wg *sync.WaitGroup, subscription models.Subscription) {
+func (m *Repository) sendEmail(wg *sync.WaitGroup, subscription models.Subscription) error {
 	defer wg.Done()
 
 	price, err := m.Fetcher.Fetch()
 	if err != nil {
-		log.Printf("Failed to retrieve rate: %v", err)
-		return
+		return fmt.Errorf("failed to retrieve rate: %w", err)
 	}
 
 	floatPrice, err := strconv.ParseFloat(price, 32)
 	if err != nil {
-		log.Printf("Failed to parse price: %v", err)
-		return
+		return fmt.Errorf("failed to parse price: %w", err)
 	}
 
 	params := email.Params{
@@ -64,9 +70,10 @@ func (m *Repository) sendEmail(wg *sync.WaitGroup, subscription models.Subscript
 		Body:    fmt.Sprintf("The current exchange rate for USD to UAH is %.2f.", floatPrice),
 	}
 
-	sender := &email.GomailSender{
-		Dialer: gomail.NewDialer("smtp.gmail.com", 587, m.App.EmailConfig.Email, m.App.EmailConfig.Password),
+	err = m.Sender.Send(m.App.EmailConfig, params)
+	if err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
 	}
 
-	email.SendEmail(sender, m.App.EmailConfig, params)
+	return nil
 }

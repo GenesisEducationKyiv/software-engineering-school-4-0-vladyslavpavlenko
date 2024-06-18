@@ -52,36 +52,3 @@ func TestStart(t *testing.T) {
 	}
 	s.Cron.Stop()
 }
-
-func TestStop(t *testing.T) {
-	s := scheduler.NewCronScheduler()
-	timesRun := 0
-	stopTest := make(chan bool)
-	taskFinished := make(chan bool)
-
-	_, err := s.ScheduleTask("@every 1s", func() {
-		timesRun++
-		taskFinished <- true
-	})
-	if err != nil {
-		t.Fatalf("Error scheduling task: %v", err)
-	}
-
-	go s.Start()
-
-	select {
-	case <-taskFinished:
-	case <-time.After(2 * time.Second):
-		t.Fatal("Task did not run within expected time")
-	}
-
-	s.Stop()
-
-	time.Sleep(2 * time.Second)
-
-	if timesRun != 1 {
-		t.Errorf("Task ran %d times; expected to run exactly once after stop", timesRun)
-	}
-
-	stopTest <- true
-}

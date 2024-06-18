@@ -16,7 +16,7 @@ func (m *Repository) SubscribeUser(emailAddr string) (statusCode int, err error)
 		return http.StatusBadRequest, errors.New("invalid email")
 	}
 
-	err = m.Subscription.Create(emailAddr)
+	err = m.Subscriber.AddSubscription(emailAddr)
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return http.StatusConflict, fmt.Errorf("already subscribed")

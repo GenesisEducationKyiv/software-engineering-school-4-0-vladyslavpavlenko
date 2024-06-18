@@ -1,42 +1,60 @@
 package handlers_test
 
-// MockDB is a mock implementation of the dbrepo.DB interface
-type MockDB struct{}
+import (
+	"testing"
 
-func (m *MockDB) Connect(_ string) error {
-	return nil
+	"github.com/stretchr/testify/mock"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
+)
+
+// MockFetcher is a mock type for the Fetcher interface
+type MockFetcher struct {
+	mock.Mock
 }
 
-func (m *MockDB) Close() error {
-	return nil
+func (m *MockFetcher) Fetch() (string, error) {
+	args := m.Called()
+	return args.String(0), args.Error(1)
 }
 
-func (m *MockDB) Migrate() error {
-	return nil
+// MockSubscription is a mock type for the Subscription interface
+type MockSubscriber struct {
+	mock.Mock
 }
 
-func (m *MockDB) SomeDBFunction() error {
-	return nil
+func (m *MockSubscriber) AddSubscription(id string) error {
+	args := m.Called(id)
+	return args.Error(0)
 }
 
-// func TestNewRepo(t *testing.T) {
-//	appConfig := &config.AppConfig{}
-//	mockDB := &MockDB{}
-//
-//	fetcher := rateapi.NewCoinbaseFetcher(&http.Client{})
-//
-//	repo := handlers.NewRepo(appConfig, mockDB, fetcher)
-//	assert.Equal(t, appConfig, repo.App, "AppConfig should be correctly assigned in NewRepo")
-//	assert.Equal(t, mockDB, repo.Subscription, "Subscriptions should be correctly assigned in NewRepo")
-// }
-//
-// func TestNewHandlers(t *testing.T) {
-//	appConfig := &config.AppConfig{}
-//	mockDB := &MockDB{}
-//
-//	fetcher := rateapi.NewCoinbaseFetcher(&http.Client{})
-//
-//	repo := handlers.NewRepo(appConfig, mockDB, fetcher)
-//	handlers.NewHandlers(repo)
-//	assert.Equal(t, repo, handlers.Repo, "Repo should be correctly set by NewHandlers")
-// }
+func (m *MockSubscriber) GetSubscriptions() ([]models.Subscription, error) {
+	args := m.Called()
+	return args.Get(0).([]models.Subscription), args.Error(1)
+}
+
+func TestNewRepo(t *testing.T) {
+	appConfig := &config.AppConfig{}
+	mockFetcher := new(MockFetcher)
+	mockSubscriber := new(MockSubscriber)
+	mockSender := new(MockEmailSender)
+
+	repo := handlers.NewRepo(appConfig, mockFetcher, mockSubscriber, mockSender)
+	if repo.App != appConfig || repo.Fetcher != mockFetcher || repo.Subscriber != mockSubscriber {
+		t.Errorf("NewRepo did not initialize the repository correctly")
+	}
+}
+
+func TestNewHandlers(t *testing.T) {
+	appConfig := &config.AppConfig{}
+	mockFetcher := new(MockFetcher)
+	mockSubscriber := new(MockSubscriber)
+	mockSender := new(MockEmailSender)
+
+	repo := handlers.NewRepo(appConfig, mockFetcher, mockSubscriber, mockSender)
+	handlers.NewHandlers(repo)
+	if handlers.Repo != repo {
+		t.Errorf("NewHandlers did not set the global Repo variable correctly")
+	}
+}

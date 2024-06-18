@@ -9,17 +9,19 @@ var Repo *Repository
 
 // Repository is the repository type
 type Repository struct {
-	App          *config.AppConfig
-	Subscription Subscription
-	Fetcher      Fetcher
+	App        *config.AppConfig
+	Subscriber Subscriber
+	Fetcher    Fetcher
+	Sender     Sender
 }
 
 // NewRepo creates a new Repository
-func NewRepo(a *config.AppConfig, fetcher Fetcher, subscription Subscription) *Repository {
+func NewRepo(a *config.AppConfig, fetcher Fetcher, subscriber Subscriber, sender Sender) *Repository {
 	return &Repository{
-		App:          a,
-		Subscription: subscription,
-		Fetcher:      fetcher,
+		App:        a,
+		Subscriber: subscriber,
+		Fetcher:    fetcher,
+		Sender:     sender,
 	}
 }
 

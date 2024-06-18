@@ -11,8 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/scheduler"
 )
 
