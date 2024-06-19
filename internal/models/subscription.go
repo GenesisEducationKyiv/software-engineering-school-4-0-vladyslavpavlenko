@@ -1,17 +1,10 @@
 package models
 
-import (
-	"time"
-)
+import "time"
 
-// Subscription is a GORM subscription model.
+// Subscription is a GORM subscription models.
 type Subscription struct {
-	ID               uint      `gorm:"primaryKey" json:"id"`
-	UserID           uint      `gorm:"not null;index" json:"user_id"`
-	User             User      `gorm:"foreignKey:UserID" json:"-"`
-	BaseCurrencyID   uint      `gorm:"not null;index" json:"base_currency_id"`
-	BaseCurrency     Currency  `gorm:"foreignKey:BaseCurrencyID" json:"-"`
-	TargetCurrencyID uint      `gorm:"not null;index" json:"target_currency_id"`
-	TargetCurrency   Currency  `gorm:"foreignKey:TargetCurrencyID" json:"-"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Email     string    `gorm:"unique" json:"email"`
+	CreatedAt time.Time `json:"created_at"`
 }

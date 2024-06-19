@@ -26,8 +26,6 @@ This endpoint returns the current `USD to UAH` exchange rate using the Coinbase 
 
 This endpoint adds an email address to the database and automatically subscribes it to the USD to UAH exchange rate newsletter.
 
-_The code includes the ability to subscribe to other rates for future development, but this functionality is not currently used to fulfill the requirements._
-
 #### Parameters
 ``email`` **string** (formData): The email address to be added to the database and the mailing list.
 
@@ -67,12 +65,12 @@ cd genesis-api-project
 ```
 ❗️Ensure you have a `.env` file in the root directory with the necessary environment variables. The `.env` should look like this:
 ```dotenv
-GMAIL_EMAIL=<GMAIL_EMAIL>
-GMAIL_PASSWORD=<GMAIL_APP_PASSWORD>
+EMAIL_ADDR=<EMAIL_ADDR>
+EMAIL_PASS=<EMAIL_PASS>
 DB_HOST=<DB_HOST>
 DB_PORT=<DB_PORT>
 DB_USER=<DB_USER>
-DB_PASSWORD=<DB_PASSWORD>
+DB_PASS=<DB_PASS>
 DB_NAME=<DB_NAME>
 ```
 

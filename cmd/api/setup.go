@@ -4,134 +4,103 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
-	"time"
+	"net/http"
 
-	"github.com/joho/godotenv"
+	"gopkg.in/gomail.v2"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
+
+	"github.com/kelseyhightower/envconfig"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/gormrepo"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
-var counts int64
+// envVariables holds environment variables used in the application.
+type envVariables struct {
+	DBURL     string `envconfig:"DB_URL"`
+	DBPort    string `envconfig:"DB_PORT"`
+	DBUser    string `envconfig:"DB_USER"`
+	DBPass    string `envconfig:"DB_PASS"`
+	DBName    string `envconfig:"DB_NAME"`
+	EmailAddr string `envconfig:"EMAIL_ADDR"`
+	EmailPass string `envconfig:"EMAIL_PASS"`
+}
 
-func setup(app *config.AppConfig) error {
-	err := godotenv.Load()
+func setup(app *config.AppConfig) (dbrepo.DB, error) {
+	envs, err := readEnv()
 	if err != nil {
-		return fmt.Errorf("error loading the .env file: %w", err)
+		return nil, fmt.Errorf("error reading the .env file: %w", err)
 	}
 
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable timezone=UTC connect_timeout=5",
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_NAME"))
+		envs.DBURL,
+		envs.DBPort,
+		envs.DBUser,
+		envs.DBPass,
+		envs.DBName)
 
-	db, err := connectToDB(dsn)
+	dbconn, err := connectDB(dsn)
 	if err != nil {
-		return fmt.Errorf("error conntecting to the database: %w", err)
+		return nil, fmt.Errorf("error conntecting to the database: %w", err)
 	}
 
-	err = runDBMigrations(db)
+	err = migrateDB(dbconn)
 	if err != nil {
-		return fmt.Errorf("error runnning database migrations: %w", err)
+		return nil, fmt.Errorf("error runnning database migrations: %w", err)
 	}
 
-	app.DB = db
-	app.Models = models.New(db)
-
-	app.EmailConfig = email.Config{
-		Email:    os.Getenv("GMAIL_EMAIL"),
-		Password: os.Getenv("GMAIL_PASSWORD"),
+	app.EmailConfig, err = email.NewEmailConfig(envs.EmailAddr, envs.EmailPass)
+	if err != nil {
+		return nil, errors.New("error setting up email configuration")
 	}
 
-	if app.EmailConfig.Email == "" || app.EmailConfig.Password == "" {
-		return errors.New("missing email configuration in environment variables")
+	fetcher := rateapi.NewCoinbaseFetcher(&http.Client{})
+	subscriber := gormrepo.NewSubscriptionRepository(dbconn)
+	sender := &email.GomailSender{
+		Dialer: gomail.NewDialer("smtp.gmail.com", 587, envs.EmailAddr, envs.EmailPass),
 	}
 
-	repo := handlers.NewRepo(app)
+	repo := handlers.NewRepo(app, fetcher, subscriber, sender)
 	handlers.NewHandlers(repo)
 
-	return nil
+	return dbconn, nil
 }
 
-// openDB initializes a new database connection.
-func openDB(dsn string) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+// readEnv reads and returns the environmental variables as an envVariables object.
+func readEnv() (envVariables, error) {
+	var envs envVariables
+	err := envconfig.Process("", &envs)
+	if err != nil {
+		return envVariables{}, err
+	}
+	return envs, nil
+}
+
+// connectDB sets up a GORM database connection and returns an interface.
+func connectDB(dsn string) (*gormrepo.GormDB, error) {
+	var db gormrepo.GormDB
+
+	err := db.Connect(dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	return db, nil
+	return &db, nil
 }
 
-// connectToDB sets up a GORM database connection.
-func connectToDB(dsn string) (*gorm.DB, error) {
-	for {
-		connection, err := openDB(dsn)
-		if err != nil {
-			log.Println("Postgres not yet ready...")
-			counts++
-		} else {
-			log.Println("Connected to Postgres!")
-			return connection, nil
-		}
-
-		if counts > 10 {
-			log.Println(err)
-			return nil, err
-		}
-
-		log.Println("Backing off for two seconds...")
-		time.Sleep(2 * time.Second)
-		continue
-	}
-}
-
-// runDBMigrations runs database migrations.
-func runDBMigrations(db *gorm.DB) error {
+// migrateDB runs database migrations.
+func migrateDB(db *gormrepo.GormDB) error {
 	log.Println("Running migrations...")
-	// create tables
-	err := db.AutoMigrate(&models.Currency{}, &models.User{}, &models.Subscription{})
-	if err != nil {
-		return fmt.Errorf("error during migration: %w", err)
-	}
 
-	// populate tables with initial data
-	err = createInitialCurrencies(db)
+	err := db.Migrate()
 	if err != nil {
-		return errors.New(fmt.Sprint("error creating initial currencies:", err))
+		return fmt.Errorf("error running migrations: %w", err)
 	}
 
 	log.Println("Database migrated!")
-
-	return nil
-}
-
-// createInitialCurrencies creates initial currencies in the `currencies` table.
-func createInitialCurrencies(db *gorm.DB) error {
-	var count int64
-
-	if err := db.Model(&models.Currency{}).Count(&count).Error; err != nil {
-		return err
-	}
-
-	if count > 0 {
-		return nil
-	}
-
-	initialCurrencies := []models.Currency{
-		{Code: "USD", Name: "United States Dollar"},
-		{Code: "UAH", Name: "Ukrainian Hryvnia"},
-	}
-
-	if err := db.Create(&initialCurrencies).Error; err != nil {
-		return err
-	}
 
 	return nil
 }
