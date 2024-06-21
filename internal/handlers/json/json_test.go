@@ -1,4 +1,4 @@
-package utils_test
+package json_test
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/utils"
+	json2 "github.com/vladyslavpavlenko/genesis-api-project/internal/handlers/json"
 )
 
 func decodeJSONResponse(t *testing.T, r *http.Response, target interface{}) {
@@ -26,7 +26,7 @@ func TestWriteJSON(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	err := utils.WriteJSON(rr, http.StatusOK, data)
+	err := json2.WriteJSON(rr, http.StatusOK, data)
 	if err != nil {
 		t.Errorf("Expected no error, but got %v", err)
 	}
@@ -46,7 +46,7 @@ func TestWriteJSON(t *testing.T) {
 
 func TestErrorJSON(t *testing.T) {
 	rr := httptest.NewRecorder()
-	err := utils.ErrorJSON(rr, errors.New("test error"), http.StatusInternalServerError)
+	err := json2.ErrorJSON(rr, errors.New("test error"), http.StatusInternalServerError)
 	if err != nil {
 		t.Errorf("Expected no error, but got %v", err)
 	}
@@ -75,7 +75,7 @@ func TestWriteJSON_MarshalError(t *testing.T) {
 	data := badJSON{}
 
 	rr := httptest.NewRecorder()
-	err := utils.WriteJSON(rr, http.StatusOK, data)
+	err := json2.WriteJSON(rr, http.StatusOK, data)
 	if err == nil {
 		t.Errorf("Expected error, but got none")
 	}

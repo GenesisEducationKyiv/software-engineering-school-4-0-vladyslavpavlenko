@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strconv"
@@ -11,25 +12,27 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 )
 
-// Sender defines an interface for sending emails.
-type Sender interface {
-	Send(emailConfig email.Config, params email.Params) error
-}
+type (
+	// Sender defines an interface for sending emails.
+	Sender interface {
+		Send(emailConfig email.Config, params email.Params) error
+	}
 
-// Fetcher interface defines an interface for fetching rates.
-type Fetcher interface {
-	Fetch() (string, error)
-}
+	// Fetcher interface defines an interface for fetching rates.
+	Fetcher interface {
+		Fetch(ctx context.Context, base, target string) (string, error)
+	}
 
-// Subscriber interface defines methods to access models.Subscription data.
-type Subscriber interface {
-	AddSubscription(string) error
-	GetSubscriptions() ([]models.Subscription, error)
-}
+	// Subscriber interface defines methods to access models.Subscription data.
+	Subscriber interface {
+		AddSubscription(string) error
+		GetSubscriptions() ([]models.Subscription, error)
+	}
+)
 
 // NotifySubscribers handles sending currency update emails to all the subscribers.
 func (m *Repository) NotifySubscribers() error {
-	subscriptions, err := m.Subscriber.GetSubscriptions()
+	subscriptions, err := m.Services.Subscriber.GetSubscriptions()
 	if err != nil {
 		return err
 	}
@@ -54,7 +57,7 @@ func (m *Repository) NotifySubscribers() error {
 func (m *Repository) sendEmail(wg *sync.WaitGroup, subscription models.Subscription) error {
 	defer wg.Done()
 
-	price, err := m.Fetcher.Fetch()
+	price, err := m.Services.Fetcher.Fetch(context.Background(), "USD", "UAH")
 	if err != nil {
 		return fmt.Errorf("failed to retrieve rate: %w", err)
 	}
@@ -70,7 +73,7 @@ func (m *Repository) sendEmail(wg *sync.WaitGroup, subscription models.Subscript
 		Body:    fmt.Sprintf("The current exchange rate for USD to UAH is %.2f.", floatPrice),
 	}
 
-	err = m.Sender.Send(m.App.EmailConfig, params)
+	err = m.Services.Sender.Send(m.App.EmailConfig, params)
 	if err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
 	}

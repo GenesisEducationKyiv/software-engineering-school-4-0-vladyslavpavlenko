@@ -4,24 +4,29 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
 )
 
+type (
+	// Services is the repository type.
+	Services struct {
+		Subscriber Subscriber
+		Fetcher    Fetcher
+		Sender     Sender
+	}
+
+	// Repository is the repository type
+	Repository struct {
+		App      *config.AppConfig
+		Services *Services
+	}
+)
+
 // Repo the repository used by the handlers
 var Repo *Repository
 
-// Repository is the repository type
-type Repository struct {
-	App        *config.AppConfig
-	Subscriber Subscriber
-	Fetcher    Fetcher
-	Sender     Sender
-}
-
 // NewRepo creates a new Repository
-func NewRepo(a *config.AppConfig, fetcher Fetcher, subscriber Subscriber, sender Sender) *Repository {
+func NewRepo(a *config.AppConfig, services *Services) *Repository {
 	return &Repository{
-		App:        a,
-		Subscriber: subscriber,
-		Fetcher:    fetcher,
-		Sender:     sender,
+		App:      a,
+		Services: services,
 	}
 }
 

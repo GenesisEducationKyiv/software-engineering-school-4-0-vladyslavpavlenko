@@ -1,29 +1,72 @@
 package handlers_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"testing"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 )
 
+type MockSender struct {
+	mock.Mock
+}
+
+func (m *MockSender) Send(cfg email.Config, params email.Params) error {
+	args := m.Called(cfg, params)
+	return args.Error(0)
+}
+
+type MockSubscriber struct {
+	mock.Mock
+}
+
+func (m *MockSubscriber) GetSubscriptions() ([]models.Subscription, error) {
+	args := m.Called()
+	return args.Get(0).([]models.Subscription), args.Error(1)
+}
+
+func (m *MockSubscriber) AddSubscription(emailAddr string) error {
+	args := m.Called(emailAddr)
+	return args.Error(0)
+}
+
+type MockFetcher struct {
+	mock.Mock
+}
+
+func (m *MockFetcher) Fetch(ctx context.Context, base, target string) (string, error) {
+	args := m.Called(ctx, base, target)
+	return args.String(0), args.Error(1)
+}
+
+func setupServicesWithMocks(subscriber *MockSubscriber, fetcher *MockFetcher, sender *MockSender) *handlers.Services {
+	return &handlers.Services{
+		Subscriber: subscriber,
+		Fetcher:    fetcher,
+		Sender:     sender,
+	}
+}
+
 func TestSubscribeUser(t *testing.T) {
-	appConfig := &config.AppConfig{}
 	mockFetcher := new(MockFetcher)
 	mockSubscriber := new(MockSubscriber)
-	mockSender := new(MockEmailSender)
-	repo := handlers.NewRepo(appConfig, mockFetcher, mockSubscriber, mockSender)
+	mockSender := new(MockSender)
+	appConfig := &config.AppConfig{}
+	services := setupServicesWithMocks(mockSubscriber, mockFetcher, mockSender)
+	repo := handlers.NewRepo(appConfig, services)
 
 	tests := []struct {
 		name         string
-		email        email.Email
+		email        string
 		mockResponse error
 		wantStatus   int
 		wantErr      string
@@ -38,10 +81,10 @@ func TestSubscribeUser(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.expectCreate {
-				mockSubscriber.On("AddSubscription", string(tc.email)).Return(tc.mockResponse)
+				mockSubscriber.On("AddSubscription", tc.email).Return(tc.mockResponse)
 			}
 
-			statusCode, err := repo.SubscribeUser(string(tc.email))
+			statusCode, err := repo.SubscribeUser(tc.email)
 			assert.Equal(t, tc.wantStatus, statusCode)
 			if err != nil {
 				assert.Contains(t, err.Error(), tc.wantErr)

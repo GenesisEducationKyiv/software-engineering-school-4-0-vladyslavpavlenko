@@ -6,28 +6,30 @@ import (
 	"log"
 	"net/http"
 
-	"gopkg.in/gomail.v2"
-
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/chain"
+	"gopkg.in/gomail.v2"
 
 	"github.com/kelseyhightower/envconfig"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/gormrepo"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
 )
 
-// envVariables holds environment variables used in the application.
-type envVariables struct {
-	DBURL     string `envconfig:"DB_URL"`
-	DBPort    string `envconfig:"DB_PORT"`
-	DBUser    string `envconfig:"DB_USER"`
-	DBPass    string `envconfig:"DB_PASS"`
-	DBName    string `envconfig:"DB_NAME"`
-	EmailAddr string `envconfig:"EMAIL_ADDR"`
-	EmailPass string `envconfig:"EMAIL_PASS"`
-}
+type (
+	// envVariables holds environment variables used in the application.
+	envVariables struct {
+		DBURL     string `envconfig:"DB_URL"`
+		DBPort    string `envconfig:"DB_PORT"`
+		DBUser    string `envconfig:"DB_USER"`
+		DBPass    string `envconfig:"DB_PASS"`
+		DBName    string `envconfig:"DB_NAME"`
+		EmailAddr string `envconfig:"EMAIL_ADDR"`
+		EmailPass string `envconfig:"EMAIL_PASS"`
+	}
+)
 
 func setup(app *config.AppConfig) (dbrepo.DB, error) {
 	envs, err := readEnv()
@@ -57,13 +59,9 @@ func setup(app *config.AppConfig) (dbrepo.DB, error) {
 		return nil, errors.New("error setting up email configuration")
 	}
 
-	fetcher := rateapi.NewCoinbaseFetcher(&http.Client{})
-	subscriber := gormrepo.NewSubscriptionRepository(dbconn)
-	sender := &email.GomailSender{
-		Dialer: gomail.NewDialer("smtp.gmail.com", 587, envs.EmailAddr, envs.EmailPass),
-	}
+	services := setupServices(&envs, dbconn)
 
-	repo := handlers.NewRepo(app, fetcher, subscriber, sender)
+	repo := handlers.NewRepo(app, services)
 	handlers.NewHandlers(repo)
 
 	return dbconn, nil
@@ -103,4 +101,35 @@ func migrateDB(db *gormrepo.GormDB) error {
 	log.Println("Database migrated!")
 
 	return nil
+}
+
+// setupServices sets up handlers.Services.
+func setupServices(envs *envVariables, dbconn *gormrepo.GormDB) *handlers.Services {
+	fetcher := setupFetchersChain()
+	subscriber := gormrepo.NewSubscriptionRepository(dbconn)
+	sender := &email.GomailSender{
+		Dialer: gomail.NewDialer("smtp.gmail.com", 587, envs.EmailAddr, envs.EmailPass),
+	}
+
+	return &handlers.Services{
+		Subscriber: subscriber,
+		Fetcher:    fetcher,
+		Sender:     sender,
+	}
+}
+
+// setupServices sets up a chain of responsibility for fetchers.
+func setupFetchersChain() *chain.Node {
+	coinbaseFetcher := rateapi.NewFetcherWithLogger("coinbase",
+		rateapi.NewCoinbaseFetcher(&http.Client{}))
+
+	nbuFetcher := rateapi.NewFetcherWithLogger("bank.gov.ua",
+		rateapi.NewNBUFetcher(&http.Client{}))
+
+	coinbaseNode := chain.NewNode(coinbaseFetcher)
+	nbuNode := chain.NewNode(nbuFetcher)
+
+	coinbaseNode.SetNext(nbuNode)
+
+	return coinbaseNode
 }

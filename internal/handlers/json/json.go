@@ -1,11 +1,11 @@
-package utils
+package json
 
 import (
 	"encoding/json"
 	"net/http"
 )
 
-type JSONResponse struct {
+type Response struct {
 	Error   bool   `json:"error"`
 	Message string `json:"message,omitempty"`
 	Data    any    `json:"data,omitempty"`
@@ -35,7 +35,7 @@ func ErrorJSON(w http.ResponseWriter, err error, status ...int) error {
 		statusCode = status[0]
 	}
 
-	payload := JSONResponse{
+	payload := Response{
 		Error:   true,
 		Message: err.Error(),
 	}

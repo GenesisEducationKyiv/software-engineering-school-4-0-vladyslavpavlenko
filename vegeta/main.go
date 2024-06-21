@@ -26,14 +26,17 @@ func generateEmail() string {
 func createForm(email string) (header string, bd []byte, er error) {
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
+
 	err := writer.WriteField("email", email)
 	if err != nil {
 		return "", nil, err
 	}
+
 	err = writer.Close()
 	if err != nil {
 		return "", nil, err
 	}
+
 	return writer.FormDataContentType(), body.Bytes(), nil
 }
 
