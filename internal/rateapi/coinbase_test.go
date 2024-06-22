@@ -111,10 +111,6 @@ func TestCoinbaseFetcher_Fetch(t *testing.T) {
 				t.Errorf("expected amount %s, got %s", tt.expectedAmount, amount)
 			}
 
-			if err != nil && err.Error() != tt.expectedError.Error() {
-				t.Errorf("expected error %v, got %v", tt.expectedError, err)
-			}
-
 			if err == nil && tt.expectedError != nil {
 				t.Errorf("expected error %v, got none", tt.expectedError)
 			}

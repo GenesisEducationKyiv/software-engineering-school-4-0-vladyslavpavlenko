@@ -17,7 +17,7 @@ type (
 		client HTTPClient
 	}
 
-	// nbuResponse is the Coinbase API response structure.
+	// nbuResponse is the bank.gov.ua API response structure.
 	nbuResponse struct {
 		R030         int     `json:"r030"`
 		TXT          string  `json:"txt"`

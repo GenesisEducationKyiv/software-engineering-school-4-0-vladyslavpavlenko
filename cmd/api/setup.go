@@ -59,7 +59,7 @@ func setup(app *config.AppConfig) (dbrepo.DB, error) {
 		return nil, errors.New("error setting up email configuration")
 	}
 
-	services := setupServices(&envs, dbconn)
+	services := setupServices(&envs, dbconn, &http.Client{})
 
 	repo := handlers.NewRepo(app, services)
 	handlers.NewHandlers(repo)
@@ -104,8 +104,8 @@ func migrateDB(db *gormrepo.GormDB) error {
 }
 
 // setupServices sets up handlers.Services.
-func setupServices(envs *envVariables, dbconn *gormrepo.GormDB) *handlers.Services {
-	fetcher := setupFetchersChain()
+func setupServices(envs *envVariables, dbconn *gormrepo.GormDB, client *http.Client) *handlers.Services {
+	fetcher := setupFetchersChain(client)
 	subscriber := gormrepo.NewSubscriptionRepository(dbconn)
 	sender := &email.GomailSender{
 		Dialer: gomail.NewDialer("smtp.gmail.com", 587, envs.EmailAddr, envs.EmailPass),
@@ -119,17 +119,22 @@ func setupServices(envs *envVariables, dbconn *gormrepo.GormDB) *handlers.Servic
 }
 
 // setupServices sets up a chain of responsibility for fetchers.
-func setupFetchersChain() *chain.Node {
+func setupFetchersChain(client *http.Client) *chain.Node {
 	coinbaseFetcher := rateapi.NewFetcherWithLogger("coinbase",
-		rateapi.NewCoinbaseFetcher(&http.Client{}))
+		rateapi.NewCoinbaseFetcher(client))
 
 	nbuFetcher := rateapi.NewFetcherWithLogger("bank.gov.ua",
-		rateapi.NewNBUFetcher(&http.Client{}))
+		rateapi.NewNBUFetcher(client))
+
+	privatFetcher := rateapi.NewFetcherWithLogger("api.privatbank.ua",
+		rateapi.NewPrivatFetcher(client))
 
 	coinbaseNode := chain.NewNode(coinbaseFetcher)
 	nbuNode := chain.NewNode(nbuFetcher)
+	privatNode := chain.NewNode(privatFetcher)
 
 	coinbaseNode.SetNext(nbuNode)
+	nbuNode.SetNext(privatNode)
 
 	return coinbaseNode
 }
