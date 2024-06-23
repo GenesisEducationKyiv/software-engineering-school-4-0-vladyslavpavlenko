@@ -6,11 +6,12 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
@@ -75,7 +76,7 @@ func TestSubscribeUser(t *testing.T) {
 		{"Invalid Email", "bademail", nil, http.StatusBadRequest, "invalid email", false},
 		{"Valid Email Success", "good@email.com", nil, http.StatusAccepted, "", true},
 		{"Duplicate Email", "duplicate@email.com", gorm.ErrDuplicatedKey, http.StatusConflict, "already subscribed", true},
-		{"DB Error", "error@email.com", errors.New("db error"), http.StatusInternalServerError, "error creating user", true},
+		{"DB Error", "error@email.com", errors.New("db error"), http.StatusInternalServerError, "subscription already exists", true},
 	}
 
 	for _, tc := range tests {

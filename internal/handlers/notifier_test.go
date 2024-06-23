@@ -3,9 +3,10 @@ package handlers_test
 import (
 	"testing"
 
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 )

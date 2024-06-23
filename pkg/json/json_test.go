@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	json2 "github.com/vladyslavpavlenko/genesis-api-project/internal/handlers/json"
+	json2 "github.com/vladyslavpavlenko/genesis-api-project/pkg/json"
 )
 
 func decodeJSONResponse(t *testing.T, r *http.Response, target interface{}) {

@@ -4,15 +4,14 @@ import (
 	"log"
 	"os"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/app"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 )
 
-const webPort = 8080
-
-var app config.AppConfig
-
 func main() {
-	err := run()
+	appConfig := config.NewAppConfig()
+
+	err := app.Run(appConfig)
 	if err != nil {
 		log.Printf("Error: %v\n", err)
 		os.Exit(1)

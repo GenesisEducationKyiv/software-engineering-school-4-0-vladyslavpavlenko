@@ -1,7 +1,10 @@
 # build a tiny docker image
-FROM alpine:latest
+FROM golang:1.22.2
 
 RUN mkdir /app
+
+COPY go.mod go.sum ./
+RUN go mod download
 
 COPY apiApp /app/apiApp
 COPY .env /app/.env

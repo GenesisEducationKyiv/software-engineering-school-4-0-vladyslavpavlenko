@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"errors"
@@ -6,13 +6,13 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
+
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/chain"
 	"gopkg.in/gomail.v2"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/gormrepo"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
@@ -31,7 +31,7 @@ type (
 	}
 )
 
-func setup(app *config.AppConfig) (dbrepo.DB, error) {
+func setup(app *config.AppConfig) (db, error) {
 	envs, err := readEnv()
 	if err != nil {
 		return nil, fmt.Errorf("error reading the .env file: %w", err)
@@ -44,12 +44,12 @@ func setup(app *config.AppConfig) (dbrepo.DB, error) {
 		envs.DBPass,
 		envs.DBName)
 
-	dbconn, err := connectDB(dsn)
+	dbConn, err := connectDB(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("error conntecting to the database: %w", err)
 	}
 
-	err = migrateDB(dbconn)
+	err = migrateDB(dbConn)
 	if err != nil {
 		return nil, fmt.Errorf("error runnning database migrations: %w", err)
 	}
@@ -59,12 +59,12 @@ func setup(app *config.AppConfig) (dbrepo.DB, error) {
 		return nil, errors.New("error setting up email configuration")
 	}
 
-	services := setupServices(&envs, dbconn, &http.Client{})
+	services := setupServices(&envs, dbConn, &http.Client{})
 
 	repo := handlers.NewRepo(app, services)
 	handlers.NewHandlers(repo)
 
-	return dbconn, nil
+	return dbConn, nil
 }
 
 // readEnv reads and returns the environmental variables as an envVariables object.
@@ -104,9 +104,9 @@ func migrateDB(db *gormrepo.GormDB) error {
 }
 
 // setupServices sets up handlers.Services.
-func setupServices(envs *envVariables, dbconn *gormrepo.GormDB, client *http.Client) *handlers.Services {
+func setupServices(envs *envVariables, dbConn *gormrepo.GormDB, client *http.Client) *handlers.Services {
 	fetcher := setupFetchersChain(client)
-	subscriber := gormrepo.NewSubscriptionRepository(dbconn)
+	subscriber := gormrepo.NewSubscriptionRepository(dbConn)
 	sender := &email.GomailSender{
 		Dialer: gomail.NewDialer("smtp.gmail.com", 587, envs.EmailAddr, envs.EmailPass),
 	}

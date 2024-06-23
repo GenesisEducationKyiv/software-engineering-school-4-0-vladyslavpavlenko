@@ -7,8 +7,9 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"gorm.io/gorm"
 )
+
+var ErrDuplicateSubscription = errors.New("subscription already exists")
 
 // SubscriptionRepository is a models.Subscription repository.
 type SubscriptionRepository struct {
@@ -20,7 +21,7 @@ func NewSubscriptionRepository(db *GormDB) *SubscriptionRepository {
 	return &SubscriptionRepository{db}
 }
 
-// Create creates a new Subscription record.
+// AddSubscription creates a new Subscription record.
 func (s *SubscriptionRepository) AddSubscription(email string) error {
 	subscription := models.Subscription{
 		Email:     email,
@@ -30,14 +31,14 @@ func (s *SubscriptionRepository) AddSubscription(email string) error {
 	if result.Error != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(result.Error, &pgErr) && pgErr.Code == "23505" {
-			return gorm.ErrDuplicatedKey
+			return ErrDuplicateSubscription
 		}
 		return result.Error
 	}
 	return nil
 }
 
-// GetAll returns all the subscriptions.
+// GetSubscriptions returns all the subscriptions.
 func (s *SubscriptionRepository) GetSubscriptions() ([]models.Subscription, error) {
 	var subscriptions []models.Subscription
 	result := s.DB.Find(&subscriptions)

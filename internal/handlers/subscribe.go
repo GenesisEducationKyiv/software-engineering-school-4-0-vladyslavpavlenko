@@ -22,7 +22,7 @@ func (m *Repository) SubscribeUser(emailAddr string) (statusCode int, err error)
 			return http.StatusConflict, fmt.Errorf("already subscribed")
 		}
 
-		return http.StatusInternalServerError, fmt.Errorf("error creating user")
+		return http.StatusInternalServerError, err
 	}
 
 	return http.StatusAccepted, nil

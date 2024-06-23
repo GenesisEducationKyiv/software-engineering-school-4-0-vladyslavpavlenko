@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers/json"
+	"github.com/vladyslavpavlenko/genesis-api-project/pkg/json"
 )
 
 // rateUpdate holds the exchange rateapi update data.

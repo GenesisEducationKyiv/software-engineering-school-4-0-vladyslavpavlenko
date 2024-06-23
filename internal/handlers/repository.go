@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/config"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 )
 
 type (
