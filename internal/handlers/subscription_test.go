@@ -30,7 +30,7 @@ type MockSubscriber struct {
 	mock.Mock
 }
 
-func (m *MockSubscriber) GetSubscriptions() ([]models.Subscription, error) {
+func (m *MockSubscriber) GetSubscriptions(_, _ int) ([]models.Subscription, error) {
 	args := m.Called()
 	return args.Get(0).([]models.Subscription), args.Error(1)
 }
