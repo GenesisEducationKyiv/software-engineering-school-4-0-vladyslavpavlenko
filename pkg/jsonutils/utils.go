@@ -1,4 +1,4 @@
-package json
+package jsonutils
 
 import (
 	"encoding/json"
@@ -17,7 +17,7 @@ func WriteJSON(w http.ResponseWriter, status int, data any) error {
 		return err
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/jsonutils")
 	w.WriteHeader(status)
 	_, err = w.Write(out)
 	if err != nil {
