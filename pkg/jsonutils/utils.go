@@ -1,11 +1,11 @@
-package utils
+package jsonutils
 
 import (
 	"encoding/json"
 	"net/http"
 )
 
-type JSONResponse struct {
+type Response struct {
 	Error   bool   `json:"error"`
 	Message string `json:"message,omitempty"`
 	Data    any    `json:"data,omitempty"`
@@ -17,7 +17,7 @@ func WriteJSON(w http.ResponseWriter, status int, data any) error {
 		return err
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/jsonutils")
 	w.WriteHeader(status)
 	_, err = w.Write(out)
 	if err != nil {
@@ -35,7 +35,7 @@ func ErrorJSON(w http.ResponseWriter, err error, status ...int) error {
 		statusCode = status[0]
 	}
 
-	payload := JSONResponse{
+	payload := Response{
 		Error:   true,
 		Message: err.Error(),
 	}

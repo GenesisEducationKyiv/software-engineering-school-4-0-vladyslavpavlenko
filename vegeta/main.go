@@ -14,7 +14,7 @@ import (
 
 var count int
 
-const BASEURL = "http://localhost:8080/api/v1"
+const BaseURL = "http://localhost:8080/api/v1"
 
 func generateEmail() string {
 	email := fmt.Sprintf("user%d@example.com", count)
@@ -26,14 +26,17 @@ func generateEmail() string {
 func createForm(email string) (header string, bd []byte, er error) {
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
+
 	err := writer.WriteField("email", email)
 	if err != nil {
 		return "", nil, err
 	}
+
 	err = writer.Close()
 	if err != nil {
 		return "", nil, err
 	}
+
 	return writer.FormDataContentType(), body.Bytes(), nil
 }
 
@@ -41,7 +44,7 @@ func main() {
 	targeter := func(tgt *vegeta.Target) error {
 		if time.Now().Unix()%2 == 0 {
 			tgt.Method = "GET"
-			tgt.URL = fmt.Sprint(BASEURL, "/rate")
+			tgt.URL = fmt.Sprint(BaseURL, "/rate")
 			tgt.Body = nil
 			tgt.Header = nil
 		} else {
@@ -52,7 +55,7 @@ func main() {
 				return err
 			}
 			tgt.Method = "POST"
-			tgt.URL = fmt.Sprint(BASEURL, "/subscribe")
+			tgt.URL = fmt.Sprint(BaseURL, "/subscribe")
 			tgt.Body = body
 			tgt.Header = make(http.Header)
 			tgt.Header.Set("Content-Type", content)

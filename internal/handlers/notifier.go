@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strconv"
@@ -11,50 +12,59 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 )
 
-// Sender defines an interface for sending emails.
-type Sender interface {
-	Send(emailConfig email.Config, params email.Params) error
-}
+const batchSize = 100
 
-// Fetcher interface defines an interface for fetching rates.
-type Fetcher interface {
-	Fetch() (string, error)
-}
+type (
+	// Sender defines an interface for sending emails.
+	Sender interface {
+		Send(emailConfig email.Config, params email.Params) error
+	}
 
-// Subscriber interface defines methods to access models.Subscription data.
-type Subscriber interface {
-	AddSubscription(string) error
-	GetSubscriptions() ([]models.Subscription, error)
-}
+	// Fetcher interface defines an interface for fetching rates.
+	Fetcher interface {
+		Fetch(ctx context.Context, base, target string) (string, error)
+	}
 
-// NotifySubscribers handles sending currency update emails to all the subscribers.
+	// Subscriber interface defines methods to access models.Subscription data.
+	Subscriber interface {
+		AddSubscription(string) error
+		GetSubscriptions(limit, offset int) ([]models.Subscription, error)
+	}
+)
+
+// NotifySubscribers handles sending currency update emails to all the subscribers in batches.
 func (m *Repository) NotifySubscribers() error {
-	subscriptions, err := m.Subscriber.GetSubscriptions()
-	if err != nil {
-		return err
-	}
+	var offset int
+	for {
+		subscriptions, err := m.Services.Subscriber.GetSubscriptions(batchSize, offset)
+		if err != nil {
+			return err
+		}
+		if len(subscriptions) == 0 {
+			break
+		}
 
-	var wg sync.WaitGroup
-	for _, subscription := range subscriptions {
-		log.Println("Adding to WaitGroup")
-		wg.Add(1)
-		go func() {
-			err = m.sendEmail(&wg, subscription)
-			if err != nil {
-				log.Println(err)
-			}
-		}()
+		var wg sync.WaitGroup
+		for _, subscription := range subscriptions {
+			wg.Add(1)
+			go func(sub models.Subscription) {
+				defer wg.Done()
+				if err = m.sendEmail(sub); err != nil {
+					log.Println(err)
+				}
+			}(subscription)
+		}
+		wg.Wait()
+
+		offset += batchSize
 	}
-	wg.Wait()
 
 	return nil
 }
 
 // sendEmail is a controller function to prepare and send emails
-func (m *Repository) sendEmail(wg *sync.WaitGroup, subscription models.Subscription) error {
-	defer wg.Done()
-
-	price, err := m.Fetcher.Fetch()
+func (m *Repository) sendEmail(subscription models.Subscription) error {
+	price, err := m.Services.Fetcher.Fetch(context.Background(), "USD", "UAH")
 	if err != nil {
 		return fmt.Errorf("failed to retrieve rate: %w", err)
 	}
@@ -70,7 +80,7 @@ func (m *Repository) sendEmail(wg *sync.WaitGroup, subscription models.Subscript
 		Body:    fmt.Sprintf("The current exchange rate for USD to UAH is %.2f.", floatPrice),
 	}
 
-	err = m.Sender.Send(m.App.EmailConfig, params)
+	err = m.Services.Sender.Send(m.App.EmailConfig, params)
 	if err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
 	}

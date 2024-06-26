@@ -1,13 +1,15 @@
-package main
+package routes_test
 
 import (
 	"testing"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers/routes"
 
 	"github.com/go-chi/chi"
 )
 
 func TestRoutes(t *testing.T) {
-	mux := routes()
+	mux := routes.Routes()
 
 	switch v := mux.(type) {
 	case *chi.Mux:

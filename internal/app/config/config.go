@@ -8,3 +8,8 @@ import (
 type AppConfig struct {
 	EmailConfig email.Config
 }
+
+// NewAppConfig creates a new AppConfig.
+func NewAppConfig() *AppConfig {
+	return &AppConfig{EmailConfig: email.Config{}}
+}
