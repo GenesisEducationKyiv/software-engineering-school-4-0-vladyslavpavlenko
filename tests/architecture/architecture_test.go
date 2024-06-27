@@ -27,12 +27,43 @@ func checkImports(t *testing.T, pkgName string, disallowedImports []string) {
 	}
 }
 
-func TestHandlerDependencies(t *testing.T) {
+func TestHandlersDependencies(t *testing.T) {
 	disallowed := []string{
 		"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo",
-		"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/gormrepo",
 		"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi",
 		"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/chain",
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/scheduler",
 	}
 	checkImports(t, "github.com/vladyslavpavlenko/genesis-api-project/internal/handlers", disallowed)
+}
+
+func TestRateAPIDependencies(t *testing.T) {
+	disallowed := []string{
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo",
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/email",
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers",
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/models",
+	}
+	checkImports(t, "github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi", disallowed)
+}
+
+func TestDBRepoDependencies(t *testing.T) {
+	disallowed := []string{
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi",
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/chain",
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers",
+	}
+	checkImports(t, "github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo", disallowed)
+}
+
+func TestEmailDependencies(t *testing.T) {
+	disallowed := []string{
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo",
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi",
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/chain",
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers",
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/models",
+		"github.com/vladyslavpavlenko/genesis-api-project/internal/scheduler",
+	}
+	checkImports(t, "github.com/vladyslavpavlenko/genesis-api-project/internal/email", disallowed)
 }

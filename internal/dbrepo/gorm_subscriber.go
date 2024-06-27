@@ -1,4 +1,4 @@
-package gormrepo
+package dbrepo
 
 import (
 	"errors"
