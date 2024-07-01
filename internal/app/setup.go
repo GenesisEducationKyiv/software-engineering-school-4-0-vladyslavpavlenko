@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
+
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
@@ -13,7 +15,6 @@ import (
 	"gopkg.in/gomail.v2"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo/gormrepo"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
 )
@@ -78,8 +79,8 @@ func readEnv() (envVariables, error) {
 }
 
 // connectDB sets up a GORM database connection and returns an interface.
-func connectDB(dsn string) (*gormrepo.GormDB, error) {
-	var db gormrepo.GormDB
+func connectDB(dsn string) (*dbrepo.GormDB, error) {
+	var db dbrepo.GormDB
 
 	err := db.Connect(dsn)
 	if err != nil {
@@ -90,7 +91,7 @@ func connectDB(dsn string) (*gormrepo.GormDB, error) {
 }
 
 // migrateDB runs database migrations.
-func migrateDB(db *gormrepo.GormDB) error {
+func migrateDB(db *dbrepo.GormDB) error {
 	log.Println("Running migrations...")
 
 	err := db.Migrate()
@@ -104,9 +105,9 @@ func migrateDB(db *gormrepo.GormDB) error {
 }
 
 // setupServices sets up handlers.Services.
-func setupServices(envs *envVariables, dbConn *gormrepo.GormDB, client *http.Client) *handlers.Services {
+func setupServices(envs *envVariables, dbConn *dbrepo.GormDB, client *http.Client) *handlers.Services {
 	fetcher := setupFetchersChain(client)
-	subscriber := gormrepo.NewSubscriptionRepository(dbConn)
+	subscriber := dbrepo.NewSubscriptionRepository(dbConn)
 	sender := &email.GomailSender{
 		Dialer: gomail.NewDialer("smtp.gmail.com", 587, envs.EmailAddr, envs.EmailPass),
 	}
