@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
+
 	"github.com/vladyslavpavlenko/genesis-api-project/pkg/jsonutils"
 )
 
@@ -60,8 +62,13 @@ func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !email.Email(body.Email).Validate() {
+		_ = jsonutils.ErrorJSON(w, errors.New("invalid email"))
+		return
+	}
+
 	// Perform the subscription operation
-	err = m.Services.Subscriber.AddSubscription(body.Email)
+	err = m.DB.AddSubscription(body.Email)
 	if err != nil {
 		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
 		return

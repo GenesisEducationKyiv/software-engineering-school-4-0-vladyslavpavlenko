@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/storage/gormrepo"
+
 	"github.com/stretchr/testify/mock"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
@@ -46,11 +48,10 @@ func (m *MockFetcher) Fetch(ctx context.Context, base, target string) (string, e
 	return args.String(0), args.Error(1)
 }
 
-func setupServicesWithMocks(subscriber *MockSubscriber, fetcher *MockFetcher, sender *MockSender) *handlers.Services {
+func setupServicesWithMocks(fetcher *MockFetcher, sender *MockSender) *handlers.Services {
 	return &handlers.Services{
-		Subscriber: subscriber,
-		Fetcher:    fetcher,
-		Sender:     sender,
+		Fetcher: fetcher,
+		Sender:  sender,
 	}
 }
 
@@ -58,12 +59,12 @@ func setupServicesWithMocks(subscriber *MockSubscriber, fetcher *MockFetcher, se
 func TestNewRepo(t *testing.T) {
 	appConfig := &config.AppConfig{}
 	services := &handlers.Services{
-		Subscriber: &MockSubscriber{},
-		Fetcher:    &MockFetcher{},
-		Sender:     &MockSender{},
+		Fetcher: &MockFetcher{},
+		Sender:  &MockSender{},
 	}
+	dbConn := &gormrepo.Connection{}
 
-	repo := handlers.NewRepo(appConfig, services)
+	repo := handlers.NewRepo(appConfig, services, dbConn)
 
 	assert.NotNil(t, repo)
 	assert.Equal(t, appConfig, repo.App)
@@ -74,12 +75,12 @@ func TestNewRepo(t *testing.T) {
 func TestNewHandlers(t *testing.T) {
 	appConfig := &config.AppConfig{}
 	services := &handlers.Services{
-		Subscriber: &MockSubscriber{},
-		Fetcher:    &MockFetcher{},
-		Sender:     &MockSender{},
+		Fetcher: &MockFetcher{},
+		Sender:  &MockSender{},
 	}
+	dbConn := &gormrepo.Connection{}
 
-	repo := handlers.NewRepo(appConfig, services)
+	repo := handlers.NewRepo(appConfig, services, dbConn)
 	handlers.NewHandlers(repo)
 
 	assert.Equal(t, repo, handlers.Repo)

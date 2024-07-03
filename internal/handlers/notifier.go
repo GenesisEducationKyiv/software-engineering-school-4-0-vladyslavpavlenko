@@ -36,7 +36,7 @@ type (
 func (m *Repository) NotifySubscribers() error {
 	var offset int
 	for {
-		subscriptions, err := m.Services.Subscriber.GetSubscriptions(batchSize, offset)
+		subscriptions, err := m.DB.GetSubscriptions(batchSize, offset)
 		if err != nil {
 			return err
 		}

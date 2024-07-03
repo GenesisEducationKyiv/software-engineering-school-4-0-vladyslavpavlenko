@@ -2,20 +2,28 @@ package handlers
 
 import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 )
 
 type (
 	// Services is the repository type.
 	Services struct {
-		Subscriber Subscriber
-		Fetcher    Fetcher
-		Sender     Sender
+		// Subscriber Subscriber
+		Fetcher Fetcher
+		Sender  Sender
 	}
 
 	// Repository is the repository type
 	Repository struct {
 		App      *config.AppConfig
+		DB       dbConnection
 		Services *Services
+	}
+
+	// dbConnection defines an interface for the database connection.
+	dbConnection interface {
+		AddSubscription(emailAddr string) error
+		GetSubscriptions(limit, offset int) ([]models.Subscription, error)
 	}
 )
 
@@ -23,9 +31,10 @@ type (
 var Repo *Repository
 
 // NewRepo creates a new Repository
-func NewRepo(a *config.AppConfig, services *Services) *Repository {
+func NewRepo(a *config.AppConfig, services *Services, conn dbConnection) *Repository {
 	return &Repository{
 		App:      a,
+		DB:       conn,
 		Services: services,
 	}
 }

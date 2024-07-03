@@ -3,6 +3,8 @@ package handlers_test
 import (
 	"testing"
 
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/storage/gormrepo"
+
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 
 	"github.com/stretchr/testify/assert"
@@ -16,8 +18,9 @@ func TestNotifySubscribers_Success(t *testing.T) {
 	mockFetcher := new(MockFetcher)
 	mockSender := new(MockSender)
 	appConfig := &config.AppConfig{}
-	services := setupServicesWithMocks(mockSubscriber, mockFetcher, mockSender)
-	repo := handlers.NewRepo(appConfig, services)
+	dbConn := &gormrepo.Connection{}
+	services := setupServicesWithMocks(mockFetcher, mockSender)
+	repo := handlers.NewRepo(appConfig, services, dbConn)
 
 	subscribers := []models.Subscription{{Email: "user@example.com"}}
 	mockSubscriber.On("GetSubscriptions").Return(subscribers, nil)

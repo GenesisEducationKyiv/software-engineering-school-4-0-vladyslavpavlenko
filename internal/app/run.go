@@ -31,11 +31,11 @@ type scheduler interface {
 	Stop()
 }
 
-// db defines an interface for the database.
-type db interface {
-	Connect(dsn string) error
+// dbConnection defines an interface for the database connection.
+type dbConnection interface {
+	Setup(dsn string) error
 	Close() error
-	Migrate() error
+	Migrate(models ...any) error
 }
 
 // Run initializes the application, sets up the database, schedules email tasks, and starts the
