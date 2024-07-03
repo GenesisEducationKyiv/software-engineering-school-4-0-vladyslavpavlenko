@@ -1,6 +1,8 @@
 package email
 
-import "gopkg.in/gomail.v2"
+import (
+	"gopkg.in/gomail.v2"
+)
 
 // GomailSender implements the Sender interface for Gomail.
 type GomailSender struct {
@@ -15,7 +17,7 @@ func (d *GomailDialer) DialAndSend(m ...*gomail.Message) error {
 	return d.Dialer.DialAndSend(m...)
 }
 
-func (gs GomailSender) Send(cfg Config, params Params) error {
+func (gs *GomailSender) Send(cfg Config, params Params) error {
 	m := gomail.NewMessage()
 	m.SetHeader("From", cfg.Email)
 	m.SetHeader("To", params.To)

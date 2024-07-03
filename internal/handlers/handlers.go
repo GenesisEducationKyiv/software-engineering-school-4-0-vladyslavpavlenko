@@ -40,7 +40,7 @@ func (m *Repository) GetRate(w http.ResponseWriter, r *http.Request) {
 
 // subscriptionBody is the email subscription request body structure.
 type subscriptionBody struct {
-	Email string `jsonutils:"email"`
+	Email string `json:"email"`
 }
 
 // Subscribe handles the `/subscribe` request.
@@ -61,9 +61,9 @@ func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Perform the subscription operation
-	code, err := m.SubscribeUser(body.Email)
+	err = m.Services.Subscriber.AddSubscription(body.Email)
 	if err != nil {
-		_ = jsonutils.ErrorJSON(w, err, code)
+		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
 		return
 	}
 
