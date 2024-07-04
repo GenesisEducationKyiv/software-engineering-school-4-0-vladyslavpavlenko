@@ -4,9 +4,14 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
+type Sender interface {
+	Send(params Params) error
+}
+
 // GomailSender implements the Sender interface for Gomail.
 type GomailSender struct {
 	Dialer Dialer
+	Config Config
 }
 
 type GomailDialer struct {
@@ -17,9 +22,9 @@ func (d *GomailDialer) DialAndSend(m ...*gomail.Message) error {
 	return d.Dialer.DialAndSend(m...)
 }
 
-func (gs *GomailSender) Send(cfg Config, params Params) error {
+func (gs *GomailSender) Send(params Params) error {
 	m := gomail.NewMessage()
-	m.SetHeader("From", cfg.Email)
+	m.SetHeader("From", gs.Config.Email)
 	m.SetHeader("To", params.To)
 	m.SetHeader("Subject", params.Subject)
 	m.SetBody("text/plain", params.Body)

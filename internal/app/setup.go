@@ -1,15 +1,15 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/storage/gormrepo"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/storage/gormrepo"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/chain"
@@ -33,7 +33,7 @@ type (
 	}
 )
 
-func setup(app *config.AppConfig) (dbConnection, error) {
+func setup(app *config.AppConfig) (*gormrepo.Connection, error) {
 	envs, err := readEnv()
 	if err != nil {
 		return nil, fmt.Errorf("error reading the .env file: %w", err)
@@ -56,14 +56,16 @@ func setup(app *config.AppConfig) (dbConnection, error) {
 		return nil, fmt.Errorf("error runnning database migrations: %w", err)
 	}
 
-	app.EmailConfig, err = email.NewEmailConfig(envs.EmailAddr, envs.EmailPass)
+	fetcher := setupFetchersChain(&http.Client{})
+
+	sender, err := setupSender(&envs)
 	if err != nil {
-		return nil, errors.New("error setting up email configuration")
+		return nil, fmt.Errorf("error setting up sender: %w", err)
 	}
 
-	services := setupServices(&envs)
+	email.NewSenderService(sender)
 
-	repo := handlers.NewRepo(app, services, dbConn)
+	repo := handlers.NewRepo(app, &handlers.Services{Fetcher: fetcher}, dbConn)
 	handlers.NewHandlers(repo)
 
 	return dbConn, nil
@@ -95,7 +97,7 @@ func connectDB(dsn string) (*gormrepo.Connection, error) {
 func migrateDB(conn *gormrepo.Connection) error {
 	log.Println("Running migrations...")
 
-	err := conn.Migrate(&models.Subscription{})
+	err := conn.Migrate(&models.Subscription{}, &outbox.Event{})
 	if err != nil {
 		return fmt.Errorf("error running migrations: %w", err)
 	}
@@ -105,17 +107,16 @@ func migrateDB(conn *gormrepo.Connection) error {
 	return nil
 }
 
-// setupServices sets up handlers.Services.
-func setupServices(envs *envVariables) *handlers.Services {
-	fetcher := setupFetchersChain(&http.Client{})
-	sender := &email.GomailSender{
-		Dialer: gomail.NewDialer("smtp.gmail.com", 587, envs.EmailAddr, envs.EmailPass),
+func setupSender(envs *envVariables) (sender *email.GomailSender, err error) {
+	emailConfig, err := email.NewEmailConfig(envs.EmailAddr, envs.EmailPass)
+	if err != nil {
+		return nil, fmt.Errorf("error creating email config: %w", err)
 	}
 
-	return &handlers.Services{
-		Fetcher: fetcher,
-		Sender:  sender,
-	}
+	return &email.GomailSender{
+		Dialer: gomail.NewDialer("smtp.gmail.com", 587, envs.EmailAddr, envs.EmailPass),
+		Config: emailConfig,
+	}, nil
 }
 
 // setupServices sets up a chain of responsibility for fetchers.

@@ -21,12 +21,42 @@ services:
       timeout: 2s
       retries: 5
 
+  zookeeper:
+    image: 'wurstmeister/zookeeper:latest'
+    ports:
+      - 2181:2181
+    restart: always
+
+  kafka:
+    image: 'wurstmeister/kafka:latest'
+    ports:
+      - 9092:9092
+      - 29092:29092
+    restart: always
+    environment:
+      KAFKA_LISTENERS: EXTERNAL_SAME_HOST://:29092,INTERNAL://:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL_SAME_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL_SAME_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    healthcheck:
+      test: [ "CMD", "kafka-topics.sh", "--list", "--zookeeper", "zookeeper:2181" ]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+
   api-app:
     build:
       context: .
       dockerfile: Dockerfile
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     ports:
       - "8080:8080"

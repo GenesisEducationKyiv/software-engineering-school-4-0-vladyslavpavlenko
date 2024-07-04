@@ -11,6 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/segmentio/kafka-go"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox/gormoutbox"
+
 	"github.com/robfig/cron/v3"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 
@@ -24,78 +29,92 @@ const (
 	schedule = "0 10 * * *"
 )
 
-// scheduler defines an interface for scheduling tasks.
-type scheduler interface {
-	ScheduleTask(schedule string, task func()) (cron.EntryID, error)
-	Start()
-	Stop()
-}
+type (
+	scheduler interface {
+		ScheduleTask(schedule string, task func()) (cron.EntryID, error)
+		Start()
+		Stop()
+	}
+)
 
-// dbConnection defines an interface for the database connection.
-type dbConnection interface {
-	Setup(dsn string) error
-	Close() error
-	Migrate(models ...any) error
-}
-
-// Run initializes the application, sets up the database, schedules email tasks, and starts the
-// HTTP server with graceful shutdown.
+// Run is the application running process.
 func Run(appConfig *config.AppConfig) error {
 	dbConn, err := setup(appConfig)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if closeErr := dbConn.Close(); closeErr != nil {
-			log.Printf("Error closing the database connection: %v\n", closeErr)
-		}
-	}()
+	defer dbConn.Close()
 
 	s := schedulerpkg.NewCronScheduler()
-	err = scheduleEmails(s)
-	if err != nil {
+	if err = scheduleEmails(s); err != nil {
 		return fmt.Errorf("failed to schedule emails: %w", err)
 	}
 	s.Start()
 	defer s.Stop()
 
-	log.Printf("Running on port %d", webPort)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
+	// Start the event producer for Kafka
+	outboxService, err := gormoutbox.NewOutbox(dbConn.DB)
+	if err != nil {
+		return fmt.Errorf("failed to create outbox: %w", err)
+	}
+
+	appConfig.Outbox = outboxService
+
+	kafkaURL := os.Getenv("KAFKA_URL")
+	kafkaTopic := "events-topic"
+	kafkaGroupID := "email-sender"
+
+	kafkaWriter := outbox.NewKafkaWriter(kafkaURL, kafkaTopic)
+	defer kafkaWriter.Close()
+	go eventProducer(ctx, outboxService, kafkaWriter)
+
+	// Start the event consumer for Kafka
+	kafkaReader := outbox.NewKafkaReader(kafkaURL, kafkaTopic, kafkaGroupID)
+	defer kafkaReader.Close()
+	go eventConsumer(ctx, kafkaReader)
+
+	log.Printf("Running on port %d", webPort)
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", webPort),
 		Handler:           routes.Routes(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	// Graceful shutdown
+	// Handle graceful shutdown
+	handleShutdown(srv, cancel)
+
+	return nil
+}
+
+// handleShutdown handles a graceful shutdown of the application.
+func handleShutdown(srv *http.Server, cancelFunc context.CancelFunc) {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		if err = srv.ListenAndServe(); err != nil && !errors.Is(http.ErrServerClosed, err) {
-			log.Fatalf("HTTP server ListenAndServe: %v", err)
+		<-stop
+		cancelFunc() // Cancel context to shut down dispatcher
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		log.Println("Shutting down server...")
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Printf("HTTP server shutdown failed: %v", err)
 		}
+		log.Println("Server has been stopped")
 	}()
 
-	// Block until a signal is received
-	<-stop
-
-	// Set a deadline
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	log.Println("Shutting down...")
-	if err = srv.Shutdown(ctx); err != nil {
-		return fmt.Errorf("server shutdown failed: %v", err)
+	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		log.Fatalf("HTTP server ListenAndServe: %v", err)
 	}
-
-	log.Println("Server has been stopped")
-	return nil
 }
 
-// scheduleEmails uses the provided Scheduler to set up the mailing function.
+// scheduleEmails sets up a mailing process.
 func scheduleEmails(s scheduler) error {
 	_, err := s.ScheduleTask(schedule, func() {
-		err := handlers.Repo.NotifySubscribers()
+		err := handlers.Repo.ProduceMailingEvents()
 		if err != nil {
 			log.Printf("Error notifying subscribers: %v", err)
 		}
@@ -105,4 +124,22 @@ func scheduleEmails(s scheduler) error {
 	}
 
 	return nil
+}
+
+// eventProducer runs an event dispatcher.
+func eventProducer(ctx context.Context, o outbox.Outbox, w *kafka.Writer) {
+	outbox.Worker(ctx, o, w)
+
+	// Wait for context cancellation to handle graceful shutdown
+	<-ctx.Done()
+	log.Println("Shutting down event producer...")
+}
+
+// eventProducer runs an event dispatcher.
+func eventConsumer(ctx context.Context, r *kafka.Reader) {
+	go outbox.ConsumeMessages(ctx, r)
+
+	// Wait for context cancellation to handle graceful shutdown
+	<-ctx.Done()
+	log.Println("Shutting down event consumer...")
 }

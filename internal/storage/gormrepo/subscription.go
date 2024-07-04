@@ -17,7 +17,7 @@ func (c *Connection) AddSubscription(email string) error {
 		Email:     email,
 		CreatedAt: time.Now(),
 	}
-	result := c.db.Create(&subscription)
+	result := c.DB.Create(&subscription)
 	if result.Error != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(result.Error, &pgErr) && pgErr.Code == "23505" {
@@ -33,7 +33,7 @@ func (c *Connection) AddSubscription(email string) error {
 // to return the records. Offset conditions can be canceled by using `Offset(-1)`.
 func (c *Connection) GetSubscriptions(limit, offset int) ([]models.Subscription, error) {
 	var subscriptions []models.Subscription
-	result := c.db.Limit(limit).Offset(offset).Find(&subscriptions)
+	result := c.DB.Limit(limit).Offset(offset).Find(&subscriptions)
 	if result.Error != nil {
 		return nil, result.Error
 	}

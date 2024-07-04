@@ -10,7 +10,7 @@ import (
 )
 
 type Connection struct {
-	db *gorm.DB
+	DB *gorm.DB
 }
 
 // Setup sets up a new Connection.
@@ -23,7 +23,7 @@ func (c *Connection) Setup(dsn string) error {
 			counts++
 		} else {
 			log.Println("Connected to Postgres!")
-			c.db = db
+			c.DB = db
 			return nil
 		}
 
@@ -48,7 +48,7 @@ func openDB(dsn string) (*gorm.DB, error) {
 
 // Close closes a database connection.
 func (c *Connection) Close() error {
-	sqlDB, err := c.db.DB()
+	sqlDB, err := c.DB.DB()
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (c *Connection) Close() error {
 
 // Migrate performs a database migration for given models.
 func (c *Connection) Migrate(models ...any) error {
-	err := c.db.AutoMigrate(models...)
+	err := c.DB.AutoMigrate(models...)
 	if err != nil {
 		return fmt.Errorf("error migrating models: %w", err)
 	}

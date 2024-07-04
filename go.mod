@@ -8,7 +8,9 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/jackc/pgx/v5 v5.4.3
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron/v3 v3.0.1
+	github.com/segmentio/kafka-go v0.4.47
 	github.com/stretchr/testify v1.9.0
 	github.com/tsenart/vegeta/v12 v12.11.1
 	golang.org/x/tools v0.22.0
@@ -32,7 +34,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/rs/dnscache v0.0.0-20211102005908-e0241e321417 // indirect
-	github.com/segmentio/kafka-go v0.4.47 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	golang.org/x/crypto v0.24.0 // indirect
 	golang.org/x/mod v0.18.0 // indirect

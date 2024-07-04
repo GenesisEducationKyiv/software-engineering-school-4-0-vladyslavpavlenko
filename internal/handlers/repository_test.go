@@ -25,16 +25,16 @@ func (m *MockSender) Send(cfg email.Config, params email.Params) error {
 	return args.Error(0)
 }
 
-type MockSubscriber struct {
+type MockDB struct {
 	mock.Mock
 }
 
-func (m *MockSubscriber) GetSubscriptions(_, _ int) ([]models.Subscription, error) {
+func (m *MockDB) GetSubscriptions(_, _ int) ([]models.Subscription, error) {
 	args := m.Called()
 	return args.Get(0).([]models.Subscription), args.Error(1)
 }
 
-func (m *MockSubscriber) AddSubscription(emailAddr string) error {
+func (m *MockDB) AddSubscription(emailAddr string) error {
 	args := m.Called(emailAddr)
 	return args.Error(0)
 }
@@ -48,10 +48,9 @@ func (m *MockFetcher) Fetch(ctx context.Context, base, target string) (string, e
 	return args.String(0), args.Error(1)
 }
 
-func setupServicesWithMocks(fetcher *MockFetcher, sender *MockSender) *handlers.Services {
+func setupServicesWithMocks(fetcher *MockFetcher) *handlers.Services {
 	return &handlers.Services{
 		Fetcher: fetcher,
-		Sender:  sender,
 	}
 }
 
@@ -60,7 +59,6 @@ func TestNewRepo(t *testing.T) {
 	appConfig := &config.AppConfig{}
 	services := &handlers.Services{
 		Fetcher: &MockFetcher{},
-		Sender:  &MockSender{},
 	}
 	dbConn := &gormrepo.Connection{}
 
@@ -76,7 +74,6 @@ func TestNewHandlers(t *testing.T) {
 	appConfig := &config.AppConfig{}
 	services := &handlers.Services{
 		Fetcher: &MockFetcher{},
-		Sender:  &MockSender{},
 	}
 	dbConn := &gormrepo.Connection{}
 

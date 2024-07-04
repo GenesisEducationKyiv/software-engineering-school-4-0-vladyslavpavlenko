@@ -14,24 +14,21 @@ import (
 )
 
 func TestNotifySubscribers_Success(t *testing.T) {
-	mockSubscriber := new(MockSubscriber)
+	mockDB := new(MockDB)
 	mockFetcher := new(MockFetcher)
-	mockSender := new(MockSender)
 	appConfig := &config.AppConfig{}
 	dbConn := &gormrepo.Connection{}
-	services := setupServicesWithMocks(mockFetcher, mockSender)
+	services := setupServicesWithMocks(mockFetcher)
 	repo := handlers.NewRepo(appConfig, services, dbConn)
 
 	subscribers := []models.Subscription{{Email: "user@example.com"}}
-	mockSubscriber.On("GetSubscriptions").Return(subscribers, nil)
+	mockDB.On("GetSubscriptions").Return(subscribers, nil)
 	mockFetcher.On("Fetch", mock.Anything, "USD", "UAH").Return("24.5", nil)
-	mockSender.On("Send", mock.AnythingOfType("email.Config"), mock.AnythingOfType("email.Params")).Return(nil)
 
-	err := repo.NotifySubscribers()
+	err := repo.ProduceMailingEvents()
 
 	assert.NoError(t, err)
 
-	mockSubscriber.AssertExpectations(t)
+	mockDB.AssertExpectations(t)
 	mockFetcher.AssertExpectations(t)
-	mockSender.AssertExpectations(t)
 }

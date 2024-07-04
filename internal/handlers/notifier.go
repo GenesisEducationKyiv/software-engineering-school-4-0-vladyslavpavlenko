@@ -7,33 +7,25 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 )
 
 const batchSize = 100
 
-type (
-	// Sender defines an interface for sending emails.
-	Sender interface {
-		Send(emailConfig email.Config, params email.Params) error
+// ProduceMailingEvents handles producing events for currency rate update emails.
+func (m *Repository) ProduceMailingEvents() error {
+	rate, err := m.Services.Fetcher.Fetch(context.Background(), "USD", "UAH")
+	if err != nil {
+		return fmt.Errorf("failed to retrieve rate: %w", err)
 	}
 
-	// Fetcher interface defines an interface for fetching rates.
-	Fetcher interface {
-		Fetch(ctx context.Context, base, target string) (string, error)
+	floatRate, err := strconv.ParseFloat(rate, 32)
+	if err != nil {
+		return fmt.Errorf("failed to parse price: %w", err)
 	}
 
-	// Subscriber interface defines methods to access models.Subscription data.
-	Subscriber interface {
-		AddSubscription(string) error
-		GetSubscriptions(limit, offset int) ([]models.Subscription, error)
-	}
-)
-
-// NotifySubscribers handles sending currency update emails to all the subscribers in batches.
-func (m *Repository) NotifySubscribers() error {
 	var offset int
 	for {
 		subscriptions, err := m.DB.GetSubscriptions(batchSize, offset)
@@ -49,40 +41,17 @@ func (m *Repository) NotifySubscribers() error {
 			wg.Add(1)
 			go func(sub models.Subscription) {
 				defer wg.Done()
-				if err = m.sendEmail(sub); err != nil {
-					log.Println(err)
+
+				data := outbox.Data{Email: sub.Email, Rate: floatRate}
+
+				if err = m.App.Outbox.AddEvent(data); err != nil {
+					log.Printf("error adding event: %v", err)
 				}
 			}(subscription)
 		}
 		wg.Wait()
 
 		offset += batchSize
-	}
-
-	return nil
-}
-
-// sendEmail is a controller function to prepare and send emails
-func (m *Repository) sendEmail(subscription models.Subscription) error {
-	price, err := m.Services.Fetcher.Fetch(context.Background(), "USD", "UAH")
-	if err != nil {
-		return fmt.Errorf("failed to retrieve rate: %w", err)
-	}
-
-	floatPrice, err := strconv.ParseFloat(price, 32)
-	if err != nil {
-		return fmt.Errorf("failed to parse price: %w", err)
-	}
-
-	params := email.Params{
-		To:      subscription.Email,
-		Subject: "USD to UAH Exchange Rate",
-		Body:    fmt.Sprintf("The current exchange rate for USD to UAH is %.2f.", floatPrice),
-	}
-
-	err = m.Services.Sender.Send(m.App.EmailConfig, params)
-	if err != nil {
-		return fmt.Errorf("failed to send email: %w", err)
 	}
 
 	return nil

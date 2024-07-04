@@ -86,8 +86,8 @@ func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
 
 // SendEmails handles the `/sendEmails` request.
 func (m *Repository) SendEmails(w http.ResponseWriter, _ *http.Request) {
-	// Perform the mailing operation
-	err := m.NotifySubscribers()
+	// Produce mailing events
+	err := m.ProduceMailingEvents()
 	if err != nil {
 		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
 		return
@@ -95,8 +95,7 @@ func (m *Repository) SendEmails(w http.ResponseWriter, _ *http.Request) {
 
 	// AddSubscription a response
 	payload := jsonutils.Response{
-		Error:   false,
-		Message: "sent",
+		Error: false,
 	}
 
 	// Send the response back
