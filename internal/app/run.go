@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	consumerpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/email/consumer"
+
 	"github.com/segmentio/kafka-go"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
@@ -35,15 +37,19 @@ type (
 		Start()
 		Stop()
 	}
+
+	consumer interface {
+		ConsumeMessages(ctx context.Context)
+	}
 )
 
 // Run is the application running process.
 func Run(appConfig *config.AppConfig) error {
-	dbConn, err := setup(appConfig)
+	appServices, err := setup(appConfig)
 	if err != nil {
 		return err
 	}
-	defer dbConn.Close()
+	defer appServices.DBConn.Close()
 
 	s := schedulerpkg.NewCronScheduler()
 	if err = scheduleEmails(s); err != nil {
@@ -56,7 +62,7 @@ func Run(appConfig *config.AppConfig) error {
 	defer cancel()
 
 	// Start the event producer for Kafka
-	outboxService, err := gormoutbox.NewOutbox(dbConn.DB)
+	outboxService, err := gormoutbox.NewOutbox(appServices.DBConn.DB)
 	if err != nil {
 		return fmt.Errorf("failed to create outbox: %w", err)
 	}
@@ -64,17 +70,16 @@ func Run(appConfig *config.AppConfig) error {
 	appConfig.Outbox = outboxService
 
 	kafkaURL := os.Getenv("KAFKA_URL")
-	kafkaTopic := "events-topic"
-	kafkaGroupID := "email-sender"
+	kafkaTopic := "email-topic"
 
 	kafkaWriter := outbox.NewKafkaWriter(kafkaURL, kafkaTopic)
 	defer kafkaWriter.Close()
 	go eventProducer(ctx, outboxService, kafkaWriter)
 
 	// Start the event consumer for Kafka
-	kafkaReader := outbox.NewKafkaReader(kafkaURL, kafkaTopic, kafkaGroupID)
-	defer kafkaReader.Close()
-	go eventConsumer(ctx, kafkaReader)
+	kafkaConsumer := consumerpkg.NewKafkaConsumer(kafkaURL, kafkaTopic, 1)
+	defer kafkaConsumer.Reader.Close()
+	go eventConsumer(ctx, kafkaConsumer)
 
 	log.Printf("Running on port %d", webPort)
 	srv := &http.Server{
@@ -136,8 +141,8 @@ func eventProducer(ctx context.Context, o outbox.Outbox, w *kafka.Writer) {
 }
 
 // eventProducer runs an event dispatcher.
-func eventConsumer(ctx context.Context, r *kafka.Reader) {
-	go outbox.ConsumeMessages(ctx, r)
+func eventConsumer(ctx context.Context, c consumer) {
+	go c.ConsumeMessages(ctx)
 
 	// Wait for context cancellation to handle graceful shutdown
 	<-ctx.Done()

@@ -4,10 +4,6 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
-type Sender interface {
-	Send(params Params) error
-}
-
 // GomailSender implements the Sender interface for Gomail.
 type GomailSender struct {
 	Dialer Dialer

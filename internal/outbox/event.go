@@ -9,7 +9,6 @@ import (
 type Event struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Data      string    `json:"data"`
-	Published bool      `json:"published"`
 	CreatedAt time.Time `json:"created_at"`
 }
 

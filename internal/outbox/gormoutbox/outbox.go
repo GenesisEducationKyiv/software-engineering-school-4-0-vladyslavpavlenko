@@ -27,7 +27,6 @@ func NewOutbox(db *gorm.DB) (*Outbox, error) {
 // AddEvent creates a new Event record.
 func (o *Outbox) AddEvent(data outbox.Data) error {
 	event := &outbox.Event{
-		Published: false,
 		CreatedAt: time.Now(),
 	}
 

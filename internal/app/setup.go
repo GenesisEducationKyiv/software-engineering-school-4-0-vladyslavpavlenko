@@ -31,9 +31,14 @@ type (
 		EmailAddr string `envconfig:"EMAIL_ADDR"`
 		EmailPass string `envconfig:"EMAIL_PASS"`
 	}
+
+	services struct {
+		DBConn *gormrepo.Connection
+		Sender *email.GomailSender
+	}
 )
 
-func setup(app *config.AppConfig) (*gormrepo.Connection, error) {
+func setup(app *config.AppConfig) (*services, error) {
 	envs, err := readEnv()
 	if err != nil {
 		return nil, fmt.Errorf("error reading the .env file: %w", err)
@@ -63,12 +68,13 @@ func setup(app *config.AppConfig) (*gormrepo.Connection, error) {
 		return nil, fmt.Errorf("error setting up sender: %w", err)
 	}
 
-	email.NewSenderService(sender)
-
 	repo := handlers.NewRepo(app, &handlers.Services{Fetcher: fetcher}, dbConn)
 	handlers.NewHandlers(repo)
 
-	return dbConn, nil
+	return &services{
+		DBConn: dbConn,
+		Sender: sender,
+	}, nil
 }
 
 // readEnv reads and returns the environmental variables as an envVariables object.
@@ -107,6 +113,7 @@ func migrateDB(conn *gormrepo.Connection) error {
 	return nil
 }
 
+// setupSender sets up a Sender service.
 func setupSender(envs *envVariables) (sender *email.GomailSender, err error) {
 	emailConfig, err := email.NewEmailConfig(envs.EmailAddr, envs.EmailPass)
 	if err != nil {
@@ -119,7 +126,7 @@ func setupSender(envs *envVariables) (sender *email.GomailSender, err error) {
 	}, nil
 }
 
-// setupServices sets up a chain of responsibility for fetchers.
+// setupFetchersChain sets up a chain of responsibility for fetchers.
 func setupFetchersChain(client *http.Client) *chain.Node {
 	coinbaseFetcher := rateapi.NewFetcherWithLogger("coinbase",
 		rateapi.NewCoinbaseFetcher(client))
