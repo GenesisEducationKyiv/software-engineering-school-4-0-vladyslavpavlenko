@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
+	emailpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/pkg/jsonutils"
 )
@@ -40,47 +40,66 @@ func (m *Repository) GetRate(w http.ResponseWriter, r *http.Request) {
 	_ = jsonutils.WriteJSON(w, http.StatusOK, payload)
 }
 
-// subscriptionBody is the email subscription request body structure.
-type subscriptionBody struct {
-	Email string `json:"email"`
+// parseEmailFromRequest parses the email from the multipart form and validates it.
+func parseEmailFromRequest(r *http.Request) (string, error) {
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		return "", errors.New("failed to parse form")
+	}
+
+	emailAddr := r.FormValue("email")
+	if emailAddr == "" {
+		return "", errors.New("email is required")
+	}
+
+	if !emailpkg.Email(emailAddr).Validate() {
+		return "", errors.New("invalid email")
+	}
+
+	return emailAddr, nil
 }
 
 // Subscribe handles the `/subscribe` request.
 func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
-	// Parse the form
-	var body subscriptionBody
-
-	err := r.ParseMultipartForm(10 << 20)
+	email, err := parseEmailFromRequest(r)
 	if err != nil {
-		_ = jsonutils.ErrorJSON(w, errors.New("failed to parse form"))
+		_ = jsonutils.ErrorJSON(w, err)
 		return
 	}
 
-	body.Email = r.FormValue("email")
-	if body.Email == "" {
-		_ = jsonutils.ErrorJSON(w, errors.New("email is required"))
-		return
-	}
-
-	if !email.Email(body.Email).Validate() {
-		_ = jsonutils.ErrorJSON(w, errors.New("invalid email"))
-		return
-	}
-
-	// Perform the subscription operation
-	err = m.DB.AddSubscription(body.Email)
+	err = m.DB.AddSubscription(email)
 	if err != nil {
 		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
 		return
 	}
 
-	// AddSubscription a response
 	payload := jsonutils.Response{
 		Error:   false,
 		Message: "subscribed",
 	}
 
-	// Send the response back
+	_ = jsonutils.WriteJSON(w, http.StatusOK, payload)
+}
+
+// Unsubscribe handles the `/unsubscribe` request.
+func (m *Repository) Unsubscribe(w http.ResponseWriter, r *http.Request) {
+	email, err := parseEmailFromRequest(r)
+	if err != nil {
+		_ = jsonutils.ErrorJSON(w, err)
+		return
+	}
+
+	err = m.DB.DeleteSubscription(email)
+	if err != nil {
+		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
+		return
+	}
+
+	payload := jsonutils.Response{
+		Error:   false,
+		Message: "unsubscribed",
+	}
+
 	_ = jsonutils.WriteJSON(w, http.StatusOK, payload)
 }
 

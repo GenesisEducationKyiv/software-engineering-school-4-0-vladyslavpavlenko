@@ -11,34 +11,39 @@ import (
 )
 
 // NewKafkaReader initializes a new kafka.Reader with a specific topic and group.
-func NewKafkaReader(kafkaURL, topic, groupID string) *kafka.Reader {
+func NewKafkaReader(kafkaURL, topic string, partition int) *kafka.Reader {
 	return kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{kafkaURL},
-		Topic:     topic,
-		GroupID:   groupID,
-		Partition: 0,
-		MinBytes:  10e3,
-		MaxBytes:  10e6,
+		Brokers:        []string{kafkaURL},
+		Topic:          topic,
+		Partition:      partition,
+		CommitInterval: 0, // disable auto-commit
 	})
 }
 
 // ConsumeMessages reads messages from Kafka, deserializes them into Event structs, and processes them.
 func ConsumeMessages(ctx context.Context, reader *kafka.Reader) {
 	for {
-		m, err := reader.ReadMessage(ctx)
+		// Read a message from Kafka
+		m, err := reader.FetchMessage(ctx)
 		if err != nil {
 			log.Printf("Failed to read message: %v", err)
 			continue
 		}
 
-		log.Printf("Message at offset %d: %s = %s\n", m.Offset, string(m.Key), string(m.Value))
-
+		// Deserialize the data from the message
 		data, err := DeserializeData(m.Value)
 		if err != nil {
 			log.Printf("Failed to deserialize data from message: %v", err)
+			continue
 		}
 
+		// Process the message
 		sendMessage(data)
+
+		// Commit the offset after processing the message
+		if err = reader.CommitMessages(ctx, m); err != nil {
+			log.Printf("Failed to commit message offset: %v", err)
+		}
 	}
 }
 

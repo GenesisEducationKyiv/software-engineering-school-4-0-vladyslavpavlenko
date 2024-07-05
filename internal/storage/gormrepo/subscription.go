@@ -9,9 +9,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-var ErrDuplicateSubscription = errors.New("subscription already exists")
+var (
+	ErrorDuplicateSubscription   = errors.New("subscription already exists")
+	ErrorNonExistentSubscription = errors.New("subscription does not exist")
+)
 
-// AddSubscription creates a new Subscription record.
+// AddSubscription creates a new models.Subscription record.
 func (c *Connection) AddSubscription(email string) error {
 	subscription := models.Subscription{
 		Email:     email,
@@ -21,10 +24,24 @@ func (c *Connection) AddSubscription(email string) error {
 	if result.Error != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(result.Error, &pgErr) && pgErr.Code == "23505" {
-			return ErrDuplicateSubscription
+			return ErrorDuplicateSubscription
 		}
 		return result.Error
 	}
+	return nil
+}
+
+// DeleteSubscription deletes a models.Subscription record.
+func (c *Connection) DeleteSubscription(email string) error {
+	result := c.DB.Where("email = ?", email).Delete(&models.Subscription{})
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return ErrorNonExistentSubscription
+	}
+
 	return nil
 }
 

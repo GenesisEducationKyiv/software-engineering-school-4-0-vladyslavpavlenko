@@ -22,6 +22,7 @@ type (
 	// dbConnection defines an interface for the database connection.
 	dbConnection interface {
 		AddSubscription(emailAddr string) error
+		DeleteSubscription(emailAddr string) error
 		GetSubscriptions(limit, offset int) ([]models.Subscription, error)
 	}
 )

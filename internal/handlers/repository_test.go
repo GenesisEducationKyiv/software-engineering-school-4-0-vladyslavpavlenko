@@ -39,6 +39,11 @@ func (m *MockDB) AddSubscription(emailAddr string) error {
 	return args.Error(0)
 }
 
+func (m *MockDB) DeleteSubscription(emailAddr string) error {
+	args := m.Called(emailAddr)
+	return args.Error(0)
+}
+
 type MockFetcher struct {
 	mock.Mock
 }
