@@ -12,9 +12,6 @@ import (
 	"time"
 
 	consumerpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/email/consumer"
-
-	"github.com/segmentio/kafka-go"
-
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox/gormoutbox"
 
@@ -31,17 +28,24 @@ const (
 	schedule = "0 10 * * *"
 )
 
-type (
-	scheduler interface {
-		ScheduleTask(schedule string, task func()) (cron.EntryID, error)
-		Start()
-		Stop()
-	}
+// scheduler is an interface for task scheduling.
+type scheduler interface {
+	Schedule(schedule string, task func()) (cron.EntryID, error)
+	Start()
+	Stop()
+}
 
-	consumer interface {
-		ConsumeMessages(ctx context.Context)
-	}
-)
+// consumer is an interface for event consumption.
+type consumer interface {
+	Consume(ctx context.Context)
+}
+
+// producer is an interface for event producing.
+type producer interface {
+	NewTopic(topic string, partitions int, replicationFactor int) error
+	SetTopic(topic string)
+	Produce(ctx context.Context)
+}
 
 // Run is the application running process.
 func Run(appConfig *config.AppConfig) error {
@@ -70,11 +74,17 @@ func Run(appConfig *config.AppConfig) error {
 	appConfig.Outbox = outboxService
 
 	kafkaURL := os.Getenv("KAFKA_URL")
-	kafkaTopic := "email-topic"
+	kafkaTopic := "emails-topic"
 
-	kafkaWriter := outbox.NewKafkaWriter(kafkaURL, kafkaTopic)
-	defer kafkaWriter.Close()
-	go eventProducer(ctx, outboxService, kafkaWriter)
+	kafkaProducer := outbox.NewKafkaProducer(kafkaURL, outboxService)
+	defer kafkaProducer.Writer.Close()
+
+	err = kafkaProducer.NewTopic(kafkaTopic, 1, 1)
+	if err != nil {
+		return fmt.Errorf("failed to create topic: %w", err)
+	}
+	kafkaProducer.SetTopic(kafkaTopic)
+	go eventProducer(ctx, kafkaProducer)
 
 	// Start the event consumer for Kafka
 	kafkaConsumer := consumerpkg.NewKafkaConsumer(kafkaURL, kafkaTopic, 1)
@@ -118,7 +128,7 @@ func handleShutdown(srv *http.Server, cancelFunc context.CancelFunc) {
 
 // scheduleEmails sets up a mailing process.
 func scheduleEmails(s scheduler) error {
-	_, err := s.ScheduleTask(schedule, func() {
+	_, err := s.Schedule(schedule, func() {
 		err := handlers.Repo.ProduceMailingEvents()
 		if err != nil {
 			log.Printf("Error notifying subscribers: %v", err)
@@ -132,8 +142,8 @@ func scheduleEmails(s scheduler) error {
 }
 
 // eventProducer runs an event dispatcher.
-func eventProducer(ctx context.Context, o outbox.Outbox, w *kafka.Writer) {
-	outbox.Worker(ctx, o, w)
+func eventProducer(ctx context.Context, p producer) {
+	p.Produce(ctx)
 
 	// Wait for context cancellation to handle graceful shutdown
 	<-ctx.Done()
@@ -142,7 +152,7 @@ func eventProducer(ctx context.Context, o outbox.Outbox, w *kafka.Writer) {
 
 // eventProducer runs an event dispatcher.
 func eventConsumer(ctx context.Context, c consumer) {
-	go c.ConsumeMessages(ctx)
+	go c.Consume(ctx)
 
 	// Wait for context cancellation to handle graceful shutdown
 	<-ctx.Done()

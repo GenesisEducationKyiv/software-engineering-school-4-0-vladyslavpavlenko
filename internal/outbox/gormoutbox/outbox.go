@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// Outbox is the repository for this package.
 type Outbox struct {
 	db *gorm.DB
 }

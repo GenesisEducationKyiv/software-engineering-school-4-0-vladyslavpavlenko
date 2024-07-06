@@ -16,18 +16,50 @@ type Outbox interface {
 	Cleanup()
 }
 
-// NewKafkaWriter initializes a new kafka.Writer and returns a reference to it.
-func NewKafkaWriter(kafkaURL, topic string) *kafka.Writer {
-	return &kafka.Writer{
+type KafkaProducer struct {
+	Writer *kafka.Writer
+	Outbox Outbox
+}
+
+// NewKafkaProducer initializes a new KafkaProducer.
+func NewKafkaProducer(kafkaURL string, outbox Outbox) *KafkaProducer {
+	writer := &kafka.Writer{
 		Addr:                   kafka.TCP(kafkaURL),
-		Topic:                  topic,
 		Balancer:               &kafka.LeastBytes{},
 		AllowAutoTopicCreation: true,
 	}
+
+	return &KafkaProducer{Writer: writer, Outbox: outbox}
 }
 
-// Worker fetches for unpublished events, publishes them, and marks them as published.
-func Worker(ctx context.Context, outbox Outbox, writer *kafka.Writer) {
+// NewTopic creates a new kafka.TopicConfig if it does not exist.
+func (p *KafkaProducer) NewTopic(topic string, partitions, replicationFactor int) error {
+	conn, err := kafka.Dial("tcp", p.Writer.Addr.String())
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	topicConfig := kafka.TopicConfig{
+		Topic:             topic,
+		NumPartitions:     partitions,
+		ReplicationFactor: replicationFactor,
+	}
+
+	err = conn.CreateTopics(topicConfig)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// SetTopic changes the topic of the current kafka.Writer
+func (p *KafkaProducer) SetTopic(topic string) {
+	p.Writer.Topic = topic
+}
+
+// Produce fetches for unpublished events, publishes them, and marks them as published.
+func (p *KafkaProducer) Produce(ctx context.Context) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
@@ -37,13 +69,13 @@ func Worker(ctx context.Context, outbox Outbox, writer *kafka.Writer) {
 			log.Println("Shutting down worker...")
 			return
 		case <-ticker.C:
-			processEvents(outbox, writer)
+			p.processEvents(p.Outbox)
 		}
 	}
 }
 
 // processEvents handles the retrieval and publishing of events.
-func processEvents(outbox Outbox, writer *kafka.Writer) {
+func (p *KafkaProducer) processEvents(outbox Outbox) {
 	events, err := outbox.GetUnpublishedEvents()
 	if err != nil {
 		log.Println("Error fetching events:", err)
@@ -51,7 +83,7 @@ func processEvents(outbox Outbox, writer *kafka.Writer) {
 	}
 
 	for _, event := range events {
-		if err := publishMessage(writer, []byte(event.Data)); err == nil {
+		if err := p.publishMessage([]byte(event.Data)); err == nil {
 			if err = outbox.MarkEventAsPublished(event.ID); err != nil {
 				log.Printf("Failed to mark event %d as published: %v", event.ID, err)
 				continue
@@ -64,9 +96,14 @@ func processEvents(outbox Outbox, writer *kafka.Writer) {
 	outbox.Cleanup()
 }
 
-func publishMessage(writer *kafka.Writer, message []byte) error {
+func (p *KafkaProducer) publishMessage(message []byte) error {
 	// Establishing connection to the leader of the partition
-	conn, err := kafka.DialLeader(context.Background(), "tcp", writer.Addr.String(), writer.Topic, 0)
+	conn, err := kafka.DialLeader(
+		context.Background(),
+		"tcp",
+		p.Writer.Addr.String(),
+		p.Writer.Topic,
+		0)
 	if err != nil {
 		log.Printf("Failed to dial leader: %v", err)
 		return err

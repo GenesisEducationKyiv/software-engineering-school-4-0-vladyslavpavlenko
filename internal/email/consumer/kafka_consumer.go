@@ -33,8 +33,8 @@ func NewKafkaConsumer(kafkaURL, topic string, partition int) *KafkaConsumer {
 	return &KafkaConsumer{Reader: reader}
 }
 
-// ConsumeMessages reads messages from Kafka, deserializes them into Event structs, and processes them.
-func (c *KafkaConsumer) ConsumeMessages(ctx context.Context) {
+// Consume reads messages from Kafka, deserializes them into Event structs, and processes them.
+func (c *KafkaConsumer) Consume(ctx context.Context) {
 	for {
 		// Read a message from Kafka
 		m, err := c.Reader.FetchMessage(ctx)
