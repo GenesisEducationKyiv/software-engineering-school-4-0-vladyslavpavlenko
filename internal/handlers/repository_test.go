@@ -53,12 +53,6 @@ func (m *MockFetcher) Fetch(ctx context.Context, base, target string) (string, e
 	return args.String(0), args.Error(1)
 }
 
-func setupServicesWithMocks(fetcher *MockFetcher) *handlers.Services {
-	return &handlers.Services{
-		Fetcher: fetcher,
-	}
-}
-
 // TestNewRepo tests the creation of a new repository
 func TestNewRepo(t *testing.T) {
 	appConfig := &config.AppConfig{}

@@ -11,17 +11,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/notifier"
 	schedulerpkg "github.com/vladyslavpavlenko/genesis-api-project/pkg/scheduler"
 
 	producerpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/outbox/producer"
 
 	consumerpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/email/consumer"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox/gormoutbox"
 
 	"github.com/robfig/cron/v3"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers/routes"
 )
 
@@ -57,28 +56,20 @@ func Run(appConfig *config.AppConfig) error {
 	}
 	defer appServices.DBConn.Close()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	s := schedulerpkg.NewCronScheduler()
-	if err = scheduleEmails(s); err != nil {
+	if err = scheduleEmails(s, appServices.Notifier); err != nil {
 		return fmt.Errorf("failed to schedule emails: %w", err)
 	}
 	s.Start()
 	defer s.Stop()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Start the event producer for Kafka
-	outboxService, err := gormoutbox.NewOutbox(appServices.DBConn)
-	if err != nil {
-		return fmt.Errorf("failed to create outbox: %w", err)
-	}
-
-	appConfig.Outbox = outboxService
-
 	kafkaURL := os.Getenv("KAFKA_URL")
 	kafkaTopic := "emails-topic"
 
-	kafkaProducer, err := producerpkg.NewKafkaProducer(kafkaURL, outboxService, appServices.DBConn)
+	kafkaProducer, err := producerpkg.NewKafkaProducer(kafkaURL, appServices.Outbox, appServices.DBConn)
 	if err != nil {
 		return fmt.Errorf("failed to create kafka producer: %w", err)
 	}
@@ -91,7 +82,6 @@ func Run(appConfig *config.AppConfig) error {
 	kafkaProducer.SetTopic(kafkaTopic)
 	go eventProducer(ctx, kafkaProducer, kafkaTopic, 1)
 
-	// Start the event consumer for Kafka
 	kafkaGroupID := "emails-group"
 
 	kafkaConsumer, err := consumerpkg.NewKafkaConsumer(
@@ -114,7 +104,6 @@ func Run(appConfig *config.AppConfig) error {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	// Handle graceful shutdown
 	handleShutdown(srv, cancel)
 
 	return nil
@@ -143,9 +132,9 @@ func handleShutdown(srv *http.Server, cancelFunc context.CancelFunc) {
 }
 
 // scheduleEmails sets up a mailing process.
-func scheduleEmails(s scheduler) error {
+func scheduleEmails(s scheduler, n *notifier.Notifier) error {
 	_, err := s.Schedule(schedule, func() {
-		err := handlers.Repo.ProduceMailingEvents()
+		err := n.ProduceNotificationEvents()
 		if err != nil {
 			log.Printf("Error notifying subscribers: %v", err)
 		}

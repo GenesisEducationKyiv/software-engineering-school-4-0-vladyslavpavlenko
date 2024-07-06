@@ -106,7 +106,7 @@ func (m *Repository) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 // SendEmails handles the `/sendEmails` request.
 func (m *Repository) SendEmails(w http.ResponseWriter, _ *http.Request) {
 	// Produce mailing events
-	err := m.ProduceMailingEvents()
+	err := m.Services.Notifier.ProduceNotificationEvents()
 	if err != nil {
 		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
 		return

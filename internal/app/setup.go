@@ -5,7 +5,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
+	notifierpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/notifier"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox/gormoutbox"
+	producerpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/outbox/producer"
+
+	outboxpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
@@ -32,8 +36,11 @@ type envVariables struct {
 }
 
 type services struct {
-	DBConn *gormrepo.Connection
-	Sender *email.GomailSender
+	DBConn   *gormrepo.Connection
+	Sender   *email.GomailSender
+	Fetcher  *chain.Node
+	Notifier *notifierpkg.Notifier
+	Outbox   producerpkg.Outbox
 }
 
 func setup(app *config.AppConfig) (*services, error) {
@@ -63,15 +70,27 @@ func setup(app *config.AppConfig) (*services, error) {
 
 	sender, err := setupSender(&envs)
 	if err != nil {
-		return nil, fmt.Errorf("error setting up sender: %w", err)
+		return nil, fmt.Errorf("failed set up sender: %w", err)
 	}
 
-	repo := handlers.NewRepo(app, &handlers.Services{Fetcher: fetcher}, dbConn)
+	outbox, err := gormoutbox.NewOutbox(dbConn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create outbox: %w", err)
+	}
+
+	notifier := notifierpkg.NewNotifier(dbConn, fetcher, outbox)
+
+	repo := handlers.NewRepo(app, &handlers.Services{
+		Fetcher:  fetcher,
+		Notifier: notifier,
+	}, dbConn)
 	handlers.NewHandlers(repo)
 
 	return &services{
-		DBConn: dbConn,
-		Sender: sender,
+		DBConn:  dbConn,
+		Sender:  sender,
+		Fetcher: fetcher,
+		Outbox:  outbox,
 	}, nil
 }
 
@@ -101,7 +120,7 @@ func connectDB(dsn string) (*gormrepo.Connection, error) {
 func migrateDB(conn *gormrepo.Connection) error {
 	log.Println("Running migrations...")
 
-	err := conn.Migrate(&models.Subscription{}, &outbox.Event{})
+	err := conn.Migrate(&models.Subscription{}, &outboxpkg.Event{})
 	if err != nil {
 		return fmt.Errorf("error running migrations: %w", err)
 	}
