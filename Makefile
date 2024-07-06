@@ -14,6 +14,10 @@ up_build: build_app
 	docker-compose up --build -d
 	@echo "Docker images built and started!"
 
+## restart: stops and then rebuilds and restarts docker-compose.
+restart: down up_build
+	@echo "Restarting docker images..."
+
 ## down: stop docker compose.
 down:
 	@echo "Stopping docker compose..."

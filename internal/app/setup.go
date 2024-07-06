@@ -20,23 +20,21 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
 )
 
-type (
-	// envVariables holds environment variables used in the application.
-	envVariables struct {
-		DBURL     string `envconfig:"DB_URL"`
-		DBPort    string `envconfig:"DB_PORT"`
-		DBUser    string `envconfig:"DB_USER"`
-		DBPass    string `envconfig:"DB_PASS"`
-		DBName    string `envconfig:"DB_NAME"`
-		EmailAddr string `envconfig:"EMAIL_ADDR"`
-		EmailPass string `envconfig:"EMAIL_PASS"`
-	}
+// envVariables holds environment variables used in the application.
+type envVariables struct {
+	DBURL     string `envconfig:"DB_URL"`
+	DBPort    string `envconfig:"DB_PORT"`
+	DBUser    string `envconfig:"DB_USER"`
+	DBPass    string `envconfig:"DB_PASS"`
+	DBName    string `envconfig:"DB_NAME"`
+	EmailAddr string `envconfig:"EMAIL_ADDR"`
+	EmailPass string `envconfig:"EMAIL_PASS"`
+}
 
-	services struct {
-		DBConn *gormrepo.Connection
-		Sender *email.GomailSender
-	}
-)
+type services struct {
+	DBConn *gormrepo.Connection
+	Sender *email.GomailSender
+}
 
 func setup(app *config.AppConfig) (*services, error) {
 	envs, err := readEnv()

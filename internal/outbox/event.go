@@ -7,9 +7,9 @@ import (
 
 // Event is a query message model stored in the database.
 type Event struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	Data      string    `json:"data"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        uint `gorm:"primaryKey"`
+	Data      string
+	CreatedAt time.Time
 }
 
 // Data is an event data model.

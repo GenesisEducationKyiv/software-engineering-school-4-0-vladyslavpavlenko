@@ -1,22 +1,28 @@
 package gormoutbox
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
 
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
 )
 
-type Outbox struct {
-	db *gorm.DB
+// dbConnection defines an interface for the database connection.
+type dbConnection interface {
+	Migrate(models ...any) error
+	AddEvent(event *outbox.Event) error
 }
 
-// NewOutbox creates a new `events` table to serve as an outbox.
-func NewOutbox(db *gorm.DB) (*Outbox, error) {
-	err := db.AutoMigrate(&outbox.Event{})
+// Outbox defines an interface for the transactional outbox.
+type Outbox struct {
+	db dbConnection
+}
+
+// NewOutbox creates `events` table to implement a transactional outbox.
+// `events` table stores all the events ever occurred.
+func NewOutbox(db dbConnection) (*Outbox, error) {
+	err := db.Migrate(&outbox.Event{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to migrate events")
 	}
@@ -31,25 +37,8 @@ func (o *Outbox) AddEvent(data outbox.Data) error {
 
 	err := event.SerializeData(data)
 	if err != nil {
-		return fmt.Errorf("failed to serialize data: %w", err)
+		return errors.Wrap(err, "failed to serialize data")
 	}
 
-	return o.db.Create(event).Error
-}
-
-// GetUnpublishedEvents retrieves all events that haven't been published yet.
-func (o *Outbox) GetUnpublishedEvents() ([]outbox.Event, error) {
-	var events []outbox.Event
-	err := o.db.Where("published = ?", false).Find(&events).Error
-	return events, err
-}
-
-// MarkEventAsPublished marks an event as published.
-func (o *Outbox) MarkEventAsPublished(eventID uint) error {
-	return o.db.Model(&outbox.Event{}).Where("id = ?", eventID).Update("published", true).Error
-}
-
-// Cleanup deletes all the Event records that have already been published or are outdated.
-func (o *Outbox) Cleanup() {
-	o.db.Where("published = ? AND created_at <= ?", true, time.Now().AddDate(0, 0, -1)).Delete(&outbox.Event{})
+	return o.db.AddEvent(event)
 }

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/scheduler"
+	"github.com/vladyslavpavlenko/genesis-api-project/pkg/scheduler"
 )
 
 func TestNewCronScheduler(t *testing.T) {

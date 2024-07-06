@@ -1,6 +1,7 @@
 package gormrepo
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -16,11 +17,14 @@ var (
 
 // AddSubscription creates a new models.Subscription record.
 func (c *Connection) AddSubscription(email string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	subscription := models.Subscription{
 		Email:     email,
 		CreatedAt: time.Now(),
 	}
-	result := c.DB.Create(&subscription)
+	result := c.db.WithContext(ctx).Create(&subscription)
 	if result.Error != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(result.Error, &pgErr) && pgErr.Code == "23505" {
@@ -33,7 +37,10 @@ func (c *Connection) AddSubscription(email string) error {
 
 // DeleteSubscription deletes a models.Subscription record.
 func (c *Connection) DeleteSubscription(email string) error {
-	result := c.DB.Where("email = ?", email).Delete(&models.Subscription{})
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	result := c.db.WithContext(ctx).Where("email = ?", email).Delete(&models.Subscription{})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -45,12 +52,15 @@ func (c *Connection) DeleteSubscription(email string) error {
 	return nil
 }
 
-// GetSubscriptions returns a paginated list of subscriptions. Limit specify the number of records to be retrieved
+// GetSubscriptions returns a paginated list of subscriptions. Limit specifies the number of records to be retrieved
 // Limit conditions can be canceled by using `Limit(-1)`. Offset specify the number of records to skip before starting
 // to return the records. Offset conditions can be canceled by using `Offset(-1)`.
 func (c *Connection) GetSubscriptions(limit, offset int) ([]models.Subscription, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	var subscriptions []models.Subscription
-	result := c.DB.Limit(limit).Offset(offset).Find(&subscriptions)
+	result := c.db.WithContext(ctx).Limit(limit).Offset(offset).Find(&subscriptions)
 	if result.Error != nil {
 		return nil, result.Error
 	}

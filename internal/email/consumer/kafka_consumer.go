@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
 
@@ -16,51 +19,78 @@ type Sender interface {
 	Send(params email.Params) error
 }
 
+type dbConnection interface {
+	Migrate(models ...any) error
+	AddConsumedEvent(event ConsumedEvent) error
+}
+
 type KafkaConsumer struct {
+	db     dbConnection
 	Reader *kafka.Reader
 	Sender Sender
 }
 
 // NewKafkaConsumer initializes a new KafkaConsumer.
-func NewKafkaConsumer(kafkaURL, topic string, partition int) *KafkaConsumer {
+func NewKafkaConsumer(kafkaURL, topic string, partition int, groupID string, sender Sender, db dbConnection) (*KafkaConsumer, error) {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        []string{kafkaURL},
 		Topic:          topic,
 		Partition:      partition,
+		GroupID:        groupID,
 		CommitInterval: 0, // disable auto-commit
 	})
 
-	return &KafkaConsumer{Reader: reader}
+	err := db.Migrate(&ConsumedEvent{})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to migrate offset")
+	}
+
+	return &KafkaConsumer{Reader: reader, Sender: sender, db: db}, nil
 }
 
-// Consume reads messages from Kafka, deserializes them into Event structs, and processes them.
 func (c *KafkaConsumer) Consume(ctx context.Context) {
 	for {
-		// Read a message from Kafka
+		// Attempt to fetch a message from Kafka
 		m, err := c.Reader.FetchMessage(ctx)
 		if err != nil {
 			log.Printf("Failed to read message: %v", err)
 			continue
 		}
 
-		// Deserialize the data from the message
+		// Attempt to deserialize the fetched message
 		data, err := outbox.DeserializeData(m.Value)
 		if err != nil {
-			log.Printf("Failed to deserialize data from message: %v", err)
+			log.Printf("Failed to deserialize data from message at offset %d: %v", m.Offset, err)
 			continue
 		}
 
-		// Process the message
-		sendMessage(data, c.Sender)
+		// Send a message
+		c.sendMessage(data)
 
-		// Commit the offset after processing the message
+		// Create a record of the consumed event
+		consumedEvent := ConsumedEvent{
+			Topic:      m.Topic,
+			Partition:  m.Partition,
+			Offset:     m.Offset,
+			ConsumedAt: time.Now(),
+		}
+
+		// Attempt to add the consumed event to the database
+		if err = c.db.AddConsumedEvent(consumedEvent); err != nil {
+			log.Printf("Failed to record consumed event at offset %d: %v", m.Offset, err)
+			continue
+		}
+
+		// Commit the offset back to Kafka to mark the message as processed
 		if err = c.Reader.CommitMessages(ctx, m); err != nil {
-			log.Printf("Failed to commit message offset: %v", err)
+			log.Printf("Failed to commit message offset %d: %v", m.Offset, err)
+		} else {
+			log.Printf("Offset committed successfully for message at offset: %d", m.Offset)
 		}
 	}
 }
 
-func sendMessage(data outbox.Data, sender Sender) {
+func (c *KafkaConsumer) sendMessage(data outbox.Data) {
 	params := email.Params{
 		To:      data.Email,
 		Subject: "USD to UAH Exchange Rate",
@@ -69,7 +99,7 @@ func sendMessage(data outbox.Data, sender Sender) {
 
 	log.Printf("Sending email to %s", data.Email)
 
-	err := sender.Send(params)
+	err := c.Sender.Send(params)
 	if err != nil {
 		log.Printf("Failed to send email: %v", err)
 	}

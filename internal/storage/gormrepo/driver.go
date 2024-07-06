@@ -1,6 +1,7 @@
 package gormrepo
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -9,8 +10,15 @@ import (
 	"gorm.io/gorm"
 )
 
+const timeout = time.Second * 5
+
 type Connection struct {
-	DB *gorm.DB
+	db *gorm.DB
+}
+
+// DB returns a pointer to gorm.DB.
+func (c *Connection) DB() *gorm.DB {
+	return c.db
 }
 
 // Setup sets up a new Connection.
@@ -23,7 +31,7 @@ func (c *Connection) Setup(dsn string) error {
 			counts++
 		} else {
 			log.Println("Connected to Postgres!")
-			c.DB = db
+			c.db = db
 			return nil
 		}
 
@@ -48,7 +56,7 @@ func openDB(dsn string) (*gorm.DB, error) {
 
 // Close closes a database connection.
 func (c *Connection) Close() error {
-	sqlDB, err := c.DB.DB()
+	sqlDB, err := c.db.DB()
 	if err != nil {
 		return err
 	}
@@ -57,10 +65,25 @@ func (c *Connection) Close() error {
 
 // Migrate performs a database migration for given models.
 func (c *Connection) Migrate(models ...any) error {
-	err := c.DB.AutoMigrate(models...)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	err := c.db.WithContext(ctx).AutoMigrate(models...)
 	if err != nil {
 		return fmt.Errorf("error migrating models: %w", err)
 	}
 
 	return nil
+}
+
+// BeginTransaction begins a transaction.
+func (c *Connection) BeginTransaction() (*gorm.DB, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	tx := c.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+	return tx, nil
 }

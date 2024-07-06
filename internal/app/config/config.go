@@ -1,12 +1,12 @@
 package config
 
 import (
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox/producer"
 )
 
 // AppConfig holds the application config.
 type AppConfig struct {
-	Outbox outbox.Outbox
+	Outbox producer.Outbox
 }
 
 // NewAppConfig creates a new AppConfig.
