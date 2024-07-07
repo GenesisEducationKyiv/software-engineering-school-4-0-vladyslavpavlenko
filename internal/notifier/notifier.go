@@ -6,12 +6,8 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox/producer"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
-
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
-
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
+	outboxpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
 )
 
 const batchSize = 100
@@ -21,14 +17,24 @@ type dbConnection interface {
 	GetSubscriptions(limit, offset int) ([]models.Subscription, error)
 }
 
+// fetcher defines an interface for the fetching data rates.
+type fetcher interface {
+	Fetch(ctx context.Context, base, target string) (string, error)
+}
+
+// outbox defines an interface for writing events to the outbox.
+type outbox interface {
+	AddEvent(data outboxpkg.Data) error
+}
+
 type Notifier struct {
 	DB      dbConnection
-	Fetcher rateapi.Fetcher
-	Outbox  producer.Outbox
+	Fetcher fetcher
+	Outbox  outbox
 }
 
 // NewNotifier creates a new Notifier.
-func NewNotifier(db dbConnection, f rateapi.Fetcher, o producer.Outbox) *Notifier {
+func NewNotifier(db dbConnection, f fetcher, o outbox) *Notifier {
 	return &Notifier{
 		DB:      db,
 		Fetcher: f,
@@ -36,8 +42,8 @@ func NewNotifier(db dbConnection, f rateapi.Fetcher, o producer.Outbox) *Notifie
 	}
 }
 
-// ProduceNotificationEvents handles producing events for currency rate update emails.
-func (n *Notifier) ProduceNotificationEvents() error {
+// Start handles producing events for currency rate update emails.
+func (n *Notifier) Start() error {
 	rate, err := n.Fetcher.Fetch(context.Background(), "USD", "UAH")
 	if err != nil {
 		return fmt.Errorf("failed to retrieve rate: %w", err)
@@ -65,7 +71,7 @@ func (n *Notifier) ProduceNotificationEvents() error {
 			go func(sub models.Subscription) {
 				defer wg.Done()
 
-				data := outbox.Data{
+				data := outboxpkg.Data{
 					Email: sub.Email,
 					Rate:  floatRate,
 				}

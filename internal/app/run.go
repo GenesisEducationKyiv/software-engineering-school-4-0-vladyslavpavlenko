@@ -134,7 +134,7 @@ func handleShutdown(srv *http.Server, cancelFunc context.CancelFunc) {
 // scheduleEmails sets up a mailing process.
 func scheduleEmails(s scheduler, n *notifier.Notifier) error {
 	_, err := s.Schedule(schedule, func() {
-		err := n.ProduceNotificationEvents()
+		err := n.Start()
 		if err != nil {
 			log.Printf("Error notifying subscribers: %v", err)
 		}
