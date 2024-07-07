@@ -2,6 +2,7 @@ package outbox
 
 import (
 	"encoding/json"
+	"log"
 	"time"
 )
 
@@ -18,14 +19,14 @@ type Data struct {
 	Rate  float64 `json:"rate"`
 }
 
-// SerializeData takes a Data struct and serializes it to a JSON string for storage.
-func (e *Event) SerializeData(data Data) error {
-	bytes, err := json.Marshal(data)
+// Serialize takes a Data struct and serializes it to a JSON string.
+func (d Data) Serialize() string {
+	bytes, err := json.Marshal(d)
 	if err != nil {
-		return err
+		log.Println(err)
+		return ""
 	}
-	e.Data = string(bytes)
-	return nil
+	return string(bytes)
 }
 
 // DeserializeData deserializes JSON string to Data struct

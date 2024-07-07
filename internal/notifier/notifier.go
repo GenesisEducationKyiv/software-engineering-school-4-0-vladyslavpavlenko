@@ -65,7 +65,10 @@ func (n *Notifier) ProduceNotificationEvents() error {
 			go func(sub models.Subscription) {
 				defer wg.Done()
 
-				data := outbox.Data{Email: sub.Email, Rate: floatRate}
+				data := outbox.Data{
+					Email: sub.Email,
+					Rate:  floatRate,
+				}
 				if localErr := n.Outbox.AddEvent(data); localErr != nil {
 					select {
 					case errChan <- localErr:

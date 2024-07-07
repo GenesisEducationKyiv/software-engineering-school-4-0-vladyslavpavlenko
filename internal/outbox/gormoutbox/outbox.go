@@ -35,10 +35,7 @@ func (o *Outbox) AddEvent(data outbox.Data) error {
 		CreatedAt: time.Now(),
 	}
 
-	err := event.SerializeData(data)
-	if err != nil {
-		return errors.Wrap(err, "failed to serialize data")
-	}
+	event.Data = data.Serialize()
 
 	return o.db.AddEvent(event)
 }

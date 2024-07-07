@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -48,6 +49,8 @@ func NewKafkaConsumer(kafkaURL, topic string, partition int, groupID string, sen
 	return &KafkaConsumer{Reader: reader, Sender: sender, db: db}, nil
 }
 
+// Consume is a worker that consumes messages from Kafka and processes them
+// to send an email using the Sender interface.
 func (c *KafkaConsumer) Consume(ctx context.Context) {
 	for {
 		// Attempt to fetch a message from Kafka
@@ -68,10 +71,16 @@ func (c *KafkaConsumer) Consume(ctx context.Context) {
 		c.sendMessage(data)
 
 		// Create a record of the consumed event
+		keyString := string(m.Key)
+		eventID, err := strconv.ParseUint(keyString, 10, 64)
+		if err != nil {
+			log.Printf("Failed to parse event ID from key: %v", err)
+			continue
+		}
+
 		consumedEvent := ConsumedEvent{
-			Topic:      m.Topic,
-			Partition:  m.Partition,
-			Offset:     m.Offset,
+			ID:         uint(eventID),
+			Data:       data.Serialize(),
 			ConsumedAt: time.Now(),
 		}
 

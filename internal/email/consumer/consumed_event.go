@@ -1,11 +1,16 @@
 package consumer
 
-import "time"
+import (
+	"time"
 
-// ConsumedEvent represents an event consumed by the consumer, including the partition information.
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
+)
+
+// ConsumedEvent represents an event consumed by the consumer.
 type ConsumedEvent struct {
-	Topic      string `gorm:"primaryKey"`
-	Partition  int    `gorm:"primaryKey"`
-	Offset     int64  `gorm:"primaryKey"`
+	ID         uint         `gorm:"not null;index"`
+	Event      outbox.Event `gorm:"foreignKey:ID" json:"-"`
+	Data       string
 	ConsumedAt time.Time
+	UpdatedAt  time.Time
 }
