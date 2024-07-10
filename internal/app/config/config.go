@@ -1,15 +1,15 @@
 package config
 
 import (
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/notifier"
 )
 
 // AppConfig holds the application config.
 type AppConfig struct {
-	EmailConfig email.Config
+	Notifier notifier.Notifier
 }
 
 // NewAppConfig creates a new AppConfig.
 func NewAppConfig() *AppConfig {
-	return &AppConfig{EmailConfig: email.Config{}}
+	return &AppConfig{}
 }

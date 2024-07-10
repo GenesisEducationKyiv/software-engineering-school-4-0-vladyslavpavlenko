@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/scheduler"
+	"github.com/vladyslavpavlenko/genesis-api-project/pkg/scheduler"
 )
 
 func TestNewCronScheduler(t *testing.T) {
@@ -16,12 +16,12 @@ func TestNewCronScheduler(t *testing.T) {
 
 func TestScheduleTask(t *testing.T) {
 	s := scheduler.NewCronScheduler()
-	_, err := s.ScheduleTask("* * * * *", func() { t.Log("Task executed") })
+	_, err := s.Schedule("* * * * *", func() { t.Log("Task executed") })
 	if err != nil {
 		t.Errorf("Failed to schedule task with valid cron schedule: %v", err)
 	}
 
-	_, err = s.ScheduleTask("invalid schedule", func() {})
+	_, err = s.Schedule("invalid schedule", func() {})
 	if err == nil {
 		t.Error("Expected error when scheduling task with invalid cron schedule, got none")
 	}
@@ -32,7 +32,7 @@ func TestStart(t *testing.T) {
 	done := make(chan bool)
 	wasRun := false
 
-	_, err := s.ScheduleTask("@every 1s", func() {
+	_, err := s.Schedule("@every 1s", func() {
 		wasRun = true
 		done <- true
 	})

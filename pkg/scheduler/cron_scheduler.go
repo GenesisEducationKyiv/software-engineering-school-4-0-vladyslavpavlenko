@@ -14,8 +14,8 @@ func NewCronScheduler() *CronScheduler {
 	}
 }
 
-// ScheduleTask schedules a given task to run at the specified cron schedule.
-func (s *CronScheduler) ScheduleTask(schedule string, task func()) (cron.EntryID, error) {
+// Schedule schedules a given task to run at the specified cron schedule.
+func (s *CronScheduler) Schedule(schedule string, task func()) (cron.EntryID, error) {
 	id, err := s.Cron.AddFunc(schedule, task)
 	if err != nil {
 		return 0, err

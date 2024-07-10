@@ -1,14 +1,19 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/dbrepo"
+	notifierpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/notifier"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox/gormoutbox"
+	producerpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/outbox/producer"
+
+	outboxpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/storage/gormrepo"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/chain"
@@ -19,20 +24,26 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
 )
 
-type (
-	// envVariables holds environment variables used in the application.
-	envVariables struct {
-		DBURL     string `envconfig:"DB_URL"`
-		DBPort    string `envconfig:"DB_PORT"`
-		DBUser    string `envconfig:"DB_USER"`
-		DBPass    string `envconfig:"DB_PASS"`
-		DBName    string `envconfig:"DB_NAME"`
-		EmailAddr string `envconfig:"EMAIL_ADDR"`
-		EmailPass string `envconfig:"EMAIL_PASS"`
-	}
-)
+// envVariables holds environment variables used in the application.
+type envVariables struct {
+	DBURL     string `envconfig:"DB_URL"`
+	DBPort    string `envconfig:"DB_PORT"`
+	DBUser    string `envconfig:"DB_USER"`
+	DBPass    string `envconfig:"DB_PASS"`
+	DBName    string `envconfig:"DB_NAME"`
+	EmailAddr string `envconfig:"EMAIL_ADDR"`
+	EmailPass string `envconfig:"EMAIL_PASS"`
+}
 
-func setup(app *config.AppConfig) (db, error) {
+type services struct {
+	DBConn   *gormrepo.Connection
+	Sender   *email.GomailSender
+	Fetcher  *chain.Node
+	Notifier *notifierpkg.Notifier
+	Outbox   producerpkg.Outbox
+}
+
+func setup(app *config.AppConfig) (*services, error) {
 	envs, err := readEnv()
 	if err != nil {
 		return nil, fmt.Errorf("error reading the .env file: %w", err)
@@ -55,17 +66,32 @@ func setup(app *config.AppConfig) (db, error) {
 		return nil, fmt.Errorf("error runnning database migrations: %w", err)
 	}
 
-	app.EmailConfig, err = email.NewEmailConfig(envs.EmailAddr, envs.EmailPass)
+	fetcher := setupFetchersChain(&http.Client{})
+
+	sender, err := setupSender(&envs)
 	if err != nil {
-		return nil, errors.New("error setting up email configuration")
+		return nil, fmt.Errorf("failed set up sender: %w", err)
 	}
 
-	services := setupServices(&envs, dbConn, &http.Client{})
+	outbox, err := gormoutbox.NewOutbox(dbConn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create outbox: %w", err)
+	}
 
-	repo := handlers.NewRepo(app, services)
+	notifier := notifierpkg.NewNotifier(dbConn, fetcher, outbox)
+
+	repo := handlers.NewRepo(app, &handlers.Services{
+		Fetcher:  fetcher,
+		Notifier: notifier,
+	}, dbConn)
 	handlers.NewHandlers(repo)
 
-	return dbConn, nil
+	return &services{
+		DBConn:  dbConn,
+		Sender:  sender,
+		Fetcher: fetcher,
+		Outbox:  outbox,
+	}, nil
 }
 
 // readEnv reads and returns the environmental variables as an envVariables object.
@@ -79,22 +105,22 @@ func readEnv() (envVariables, error) {
 }
 
 // connectDB sets up a GORM database connection and returns an interface.
-func connectDB(dsn string) (*dbrepo.GormDB, error) {
-	var db dbrepo.GormDB
+func connectDB(dsn string) (*gormrepo.Connection, error) {
+	var conn gormrepo.Connection
 
-	err := db.Connect(dsn)
+	err := conn.Setup(dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	return &db, nil
+	return &conn, nil
 }
 
 // migrateDB runs database migrations.
-func migrateDB(db *dbrepo.GormDB) error {
+func migrateDB(conn *gormrepo.Connection) error {
 	log.Println("Running migrations...")
 
-	err := db.Migrate()
+	err := conn.Migrate(&models.Subscription{}, &outboxpkg.Event{})
 	if err != nil {
 		return fmt.Errorf("error running migrations: %w", err)
 	}
@@ -104,22 +130,20 @@ func migrateDB(db *dbrepo.GormDB) error {
 	return nil
 }
 
-// setupServices sets up handlers.Services.
-func setupServices(envs *envVariables, dbConn *dbrepo.GormDB, client *http.Client) *handlers.Services {
-	fetcher := setupFetchersChain(client)
-	subscriber := dbrepo.NewSubscriptionRepository(dbConn)
-	sender := &email.GomailSender{
-		Dialer: gomail.NewDialer("smtp.gmail.com", 587, envs.EmailAddr, envs.EmailPass),
+// setupSender sets up a Sender service.
+func setupSender(envs *envVariables) (sender *email.GomailSender, err error) {
+	emailConfig, err := email.NewEmailConfig(envs.EmailAddr, envs.EmailPass)
+	if err != nil {
+		return nil, fmt.Errorf("error creating email config: %w", err)
 	}
 
-	return &handlers.Services{
-		Subscriber: subscriber,
-		Fetcher:    fetcher,
-		Sender:     sender,
-	}
+	return &email.GomailSender{
+		Dialer: gomail.NewDialer("smtp.gmail.com", 587, envs.EmailAddr, envs.EmailPass),
+		Config: emailConfig,
+	}, nil
 }
 
-// setupServices sets up a chain of responsibility for fetchers.
+// setupFetchersChain sets up a chain of responsibility for fetchers.
 func setupFetchersChain(client *http.Client) *chain.Node {
 	coinbaseFetcher := rateapi.NewFetcherWithLogger("coinbase",
 		rateapi.NewCoinbaseFetcher(client))

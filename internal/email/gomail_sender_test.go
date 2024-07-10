@@ -17,12 +17,11 @@ func TestSend(t *testing.T) {
 
 	mockDialer := mocks.NewMockDialer(ctrl)
 	gomailSender := email.GomailSender{Dialer: mockDialer}
-	config := email.Config{Email: "test@example.com", Password: "password"}
 	params := email.Params{To: "recipient@example.com", Subject: "Test", Body: "Hello"}
 
 	mockDialer.EXPECT().DialAndSend(gomock.Any()).Return(nil)
 
-	err := gomailSender.Send(config, params)
+	err := gomailSender.Send(params)
 	if err != nil {
 		t.Errorf("Send failed: %v", err)
 	}
@@ -35,13 +34,12 @@ func TestGomailSenderSendFailure(t *testing.T) {
 	mockDialer := mocks.NewMockDialer(ctrl)
 	sender := email.GomailSender{Dialer: mockDialer}
 
-	cfg := email.Config{Email: "test@example.com", Password: "password"}
 	params := email.Params{To: "recipient@example.com", Subject: "Failure Test", Body: "This email should encounter a send error."}
 
 	testError := errors.New("smtp error")
 	mockDialer.EXPECT().DialAndSend(gomock.Any()).Return(testError)
 
-	err := sender.Send(cfg, params)
+	err := sender.Send(params)
 
 	assert.Equal(t, testError, err, "Expected a specific error, but got a different one")
 }
