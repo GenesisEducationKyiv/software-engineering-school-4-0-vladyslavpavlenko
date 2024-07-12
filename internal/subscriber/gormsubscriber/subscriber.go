@@ -2,10 +2,8 @@ package gormsubscriber
 
 import (
 	"context"
-	"errors"
-	"time"
 
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/pkg/errors"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/storage/gormstorage"
 	"gorm.io/gorm"
@@ -14,6 +12,7 @@ import (
 var (
 	ErrorDuplicateSubscription   = errors.New("subscription already exists")
 	ErrorNonExistentSubscription = errors.New("subscription does not exist")
+	ErrorSubscriptionFailed      = errors.New("subscription failed")
 )
 
 type Subscriber struct {
@@ -29,22 +28,19 @@ func NewSubscriber(db *gorm.DB) *Subscriber {
 
 // AddSubscription creates a new models.Subscription record.
 func (s *Subscriber) AddSubscription(email string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), gormstorage.RequestTimeout)
-	defer cancel()
+	orchestrator, err := NewSagaOrchestrator(email, s.db)
+	if err != nil {
+		return errors.Wrap(err, "failed to create orchestrator")
+	}
 
-	subscription := models.Subscription{
-		Email:     email,
-		CreatedAt: time.Now(),
+	err = orchestrator.Run(s)
+	if err != nil {
+		return err
 	}
-	result := s.db.WithContext(ctx).Create(&subscription)
-	if result.Error != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(result.Error, &pgErr) && pgErr.Code == "23505" {
-			return ErrorDuplicateSubscription
-		}
-		return result.Error
+	if orchestrator.State.Status == StatusCompleted {
+		return nil
 	}
-	return nil
+	return err
 }
 
 // DeleteSubscription deletes a models.Subscription record.
