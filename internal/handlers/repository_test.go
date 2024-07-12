@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/storage/gormrepo"
-
 	"github.com/stretchr/testify/mock"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
@@ -25,21 +23,21 @@ func (m *MockSender) Send(cfg email.Config, params email.Params) error {
 	return args.Error(0)
 }
 
-type MockDB struct {
+type MockSubscriber struct {
 	mock.Mock
 }
 
-func (m *MockDB) GetSubscriptions(_, _ int) ([]models.Subscription, error) {
+func (m *MockSubscriber) GetSubscriptions(_, _ int) ([]models.Subscription, error) {
 	args := m.Called()
 	return args.Get(0).([]models.Subscription), args.Error(1)
 }
 
-func (m *MockDB) AddSubscription(emailAddr string) error {
+func (m *MockSubscriber) AddSubscription(emailAddr string) error {
 	args := m.Called(emailAddr)
 	return args.Error(0)
 }
 
-func (m *MockDB) DeleteSubscription(emailAddr string) error {
+func (m *MockSubscriber) DeleteSubscription(emailAddr string) error {
 	args := m.Called(emailAddr)
 	return args.Error(0)
 }
@@ -57,11 +55,10 @@ func (m *MockFetcher) Fetch(ctx context.Context, base, target string) (string, e
 func TestNewRepo(t *testing.T) {
 	appConfig := &config.AppConfig{}
 	services := &handlers.Services{
-		Fetcher: &MockFetcher{},
+		Fetcher:    &MockFetcher{},
+		Subscriber: &MockSubscriber{},
 	}
-	dbConn := &gormrepo.Connection{}
-
-	repo := handlers.NewRepo(appConfig, services, dbConn)
+	repo := handlers.NewRepo(appConfig, services)
 
 	assert.NotNil(t, repo)
 	assert.Equal(t, appConfig, repo.App)
@@ -72,11 +69,11 @@ func TestNewRepo(t *testing.T) {
 func TestNewHandlers(t *testing.T) {
 	appConfig := &config.AppConfig{}
 	services := &handlers.Services{
-		Fetcher: &MockFetcher{},
+		Fetcher:    &MockFetcher{},
+		Subscriber: &MockSubscriber{},
 	}
-	dbConn := &gormrepo.Connection{}
 
-	repo := handlers.NewRepo(appConfig, services, dbConn)
+	repo := handlers.NewRepo(appConfig, services)
 	handlers.NewHandlers(repo)
 
 	assert.Equal(t, repo, handlers.Repo)
