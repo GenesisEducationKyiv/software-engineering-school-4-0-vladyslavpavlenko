@@ -5,6 +5,10 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/subscriber/gormsubscriber"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/storage/gormstorage"
+
 	notifierpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/notifier"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/outbox/gormoutbox"
 	producerpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/outbox/producer"
@@ -13,8 +17,6 @@ import (
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/storage/gormrepo"
-
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/chain"
 	"gopkg.in/gomail.v2"
@@ -36,11 +38,12 @@ type envVariables struct {
 }
 
 type services struct {
-	DBConn   *gormrepo.Connection
-	Sender   *email.GomailSender
-	Fetcher  *chain.Node
-	Notifier *notifierpkg.Notifier
-	Outbox   producerpkg.Outbox
+	DBConn     *gormstorage.Connection
+	Sender     *email.GomailSender
+	Fetcher    *chain.Node
+	Notifier   *notifierpkg.Notifier
+	Subscriber *gormsubscriber.Subscriber
+	Outbox     producerpkg.Outbox
 }
 
 func setup(app *config.AppConfig) (*services, error) {
@@ -78,12 +81,15 @@ func setup(app *config.AppConfig) (*services, error) {
 		return nil, fmt.Errorf("failed to create outbox: %w", err)
 	}
 
-	notifier := notifierpkg.NewNotifier(dbConn, fetcher, outbox)
+	subscriber := gormsubscriber.NewSubscriber(dbConn.DB())
+
+	notifier := notifierpkg.NewNotifier(subscriber, fetcher, outbox)
 
 	repo := handlers.NewRepo(app, &handlers.Services{
-		Fetcher:  fetcher,
-		Notifier: notifier,
-	}, dbConn)
+		Fetcher:    fetcher,
+		Notifier:   notifier,
+		Subscriber: subscriber,
+	})
 	handlers.NewHandlers(repo)
 
 	return &services{
@@ -105,8 +111,8 @@ func readEnv() (envVariables, error) {
 }
 
 // connectDB sets up a GORM database connection and returns an interface.
-func connectDB(dsn string) (*gormrepo.Connection, error) {
-	var conn gormrepo.Connection
+func connectDB(dsn string) (*gormstorage.Connection, error) {
+	var conn gormstorage.Connection
 
 	err := conn.Setup(dsn)
 	if err != nil {
@@ -117,7 +123,7 @@ func connectDB(dsn string) (*gormrepo.Connection, error) {
 }
 
 // migrateDB runs database migrations.
-func migrateDB(conn *gormrepo.Connection) error {
+func migrateDB(conn *gormstorage.Connection) error {
 	log.Println("Running migrations...")
 
 	err := conn.Migrate(&models.Subscription{}, &outboxpkg.Event{})
