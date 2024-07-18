@@ -1,4 +1,4 @@
-package gormrepo
+package gormstorage
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const timeout = time.Second * 5
+const RequestTimeout = time.Second * 5
 
 type Connection struct {
 	db *gorm.DB
@@ -65,7 +65,7 @@ func (c *Connection) Close() error {
 
 // Migrate performs a database migration for given models.
 func (c *Connection) Migrate(models ...any) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), RequestTimeout)
 	defer cancel()
 
 	err := c.db.WithContext(ctx).AutoMigrate(models...)
@@ -78,7 +78,7 @@ func (c *Connection) Migrate(models ...any) error {
 
 // BeginTransaction begins a transaction.
 func (c *Connection) BeginTransaction() (*gorm.DB, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), RequestTimeout)
 	defer cancel()
 
 	tx := c.db.WithContext(ctx).Begin()

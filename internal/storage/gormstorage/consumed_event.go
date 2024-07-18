@@ -1,4 +1,4 @@
-package gormrepo
+package gormstorage
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 // AddConsumedEvent creates a new consumer.ConsumedEvent record.
 func (c *Connection) AddConsumedEvent(event consumer.ConsumedEvent) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), RequestTimeout)
 	defer cancel()
 
 	result := c.db.WithContext(ctx).Create(event)

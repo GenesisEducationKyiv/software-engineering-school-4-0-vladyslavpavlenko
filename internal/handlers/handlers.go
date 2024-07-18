@@ -67,7 +67,7 @@ func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = m.DB.AddSubscription(email)
+	err = m.Services.Subscriber.AddSubscription(email)
 	if err != nil {
 		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
 		return
@@ -89,7 +89,7 @@ func (m *Repository) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = m.DB.DeleteSubscription(email)
+	err = m.Services.Subscriber.DeleteSubscription(email)
 	if err != nil {
 		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
 		return

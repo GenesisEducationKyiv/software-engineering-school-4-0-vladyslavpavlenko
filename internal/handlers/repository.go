@@ -10,19 +10,19 @@ import (
 type (
 	// Services is the repository type.
 	Services struct {
-		Fetcher  rateapi.Fetcher
-		Notifier *notifier.Notifier
+		Fetcher    rateapi.Fetcher
+		Notifier   *notifier.Notifier
+		Subscriber subscriber
 	}
 
 	// Repository is the repository type
 	Repository struct {
 		App      *config.AppConfig
-		DB       dbConnection
 		Services *Services
 	}
 
-	// dbConnection defines an interface for the database connection.
-	dbConnection interface {
+	// subscriber defines an interface for managing subscriptions.
+	subscriber interface {
 		AddSubscription(emailAddr string) error
 		DeleteSubscription(emailAddr string) error
 		GetSubscriptions(limit, offset int) ([]models.Subscription, error)
@@ -33,10 +33,9 @@ type (
 var Repo *Repository
 
 // NewRepo creates a new Repository
-func NewRepo(a *config.AppConfig, services *Services, conn dbConnection) *Repository {
+func NewRepo(a *config.AppConfig, services *Services) *Repository {
 	return &Repository{
 		App:      a,
-		DB:       conn,
 		Services: services,
 	}
 }

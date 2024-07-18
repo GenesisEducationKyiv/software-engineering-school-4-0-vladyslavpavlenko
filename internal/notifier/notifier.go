@@ -12,8 +12,8 @@ import (
 
 const batchSize = 100
 
-// dbConnection defines an interface for the database connection.
-type dbConnection interface {
+// subscriber defines an interface for managing subscribers.
+type subscriber interface {
 	GetSubscriptions(limit, offset int) ([]models.Subscription, error)
 }
 
@@ -28,17 +28,17 @@ type outbox interface {
 }
 
 type Notifier struct {
-	DB      dbConnection
-	Fetcher fetcher
-	Outbox  outbox
+	Subscriber subscriber
+	Fetcher    fetcher
+	Outbox     outbox
 }
 
 // NewNotifier creates a new Notifier.
-func NewNotifier(db dbConnection, f fetcher, o outbox) *Notifier {
+func NewNotifier(s subscriber, f fetcher, o outbox) *Notifier {
 	return &Notifier{
-		DB:      db,
-		Fetcher: f,
-		Outbox:  o,
+		Subscriber: s,
+		Fetcher:    f,
+		Outbox:     o,
 	}
 }
 
@@ -57,7 +57,7 @@ func (n *Notifier) Start() error {
 	var offset int
 	errChan := make(chan error, 1)
 	for {
-		subscriptions, err := n.DB.GetSubscriptions(batchSize, offset)
+		subscriptions, err := n.Subscriber.GetSubscriptions(batchSize, offset)
 		if err != nil {
 			return err
 		}
