@@ -7,33 +7,31 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 )
 
-type (
-	// Services is the repository type.
-	Services struct {
-		Fetcher    rateapi.Fetcher
-		Notifier   *notifier.Notifier
-		Subscriber subscriber
-	}
+// Services is the repository type.
+type Services struct {
+	Fetcher    rateapi.Fetcher
+	Notifier   *notifier.Notifier
+	Subscriber subscriber
+}
 
-	// Repository is the repository type
-	Repository struct {
-		App      *config.AppConfig
-		Services *Services
-	}
+// Repository is the repository type
+type Repository struct {
+	App      *config.Config
+	Services *Services
+}
 
-	// subscriber defines an interface for managing subscriptions.
-	subscriber interface {
-		AddSubscription(emailAddr string) error
-		DeleteSubscription(emailAddr string) error
-		GetSubscriptions(limit, offset int) ([]models.Subscription, error)
-	}
-)
+// subscriber defines an interface for managing subscriptions.
+type subscriber interface {
+	AddSubscription(emailAddr string) error
+	DeleteSubscription(emailAddr string) error
+	GetSubscriptions(limit, offset int) ([]models.Subscription, error)
+}
 
 // Repo the repository used by the handlers
 var Repo *Repository
 
 // NewRepo creates a new Repository
-func NewRepo(a *config.AppConfig, services *Services) *Repository {
+func NewRepo(a *config.Config, services *Services) *Repository {
 	return &Repository{
 		App:      a,
 		Services: services,

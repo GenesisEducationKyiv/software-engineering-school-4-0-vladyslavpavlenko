@@ -10,7 +10,6 @@ import (
 
 func Routes() http.Handler {
 	mux := chi.NewRouter()
-	mux.Use(middleware.Logger)
 
 	mux.Use(middleware.Heartbeat("/health"))
 

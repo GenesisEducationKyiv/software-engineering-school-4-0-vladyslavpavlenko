@@ -30,7 +30,7 @@ func TestNBUFetcher_Fetch(t *testing.T) {
 							"txt": "Долар США",
 							"rate": 40.4478,
 							"cc": "USD",
-							"exchangedate": "24.06.2024"
+							"exchange_data": "24.06.2024"
 						}
 					]`))),
 				}

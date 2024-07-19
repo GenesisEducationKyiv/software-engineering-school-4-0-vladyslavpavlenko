@@ -23,7 +23,7 @@ type (
 		TXT          string  `json:"txt"`
 		Rate         float64 `json:"rate"`
 		CC           string  `json:"cc"`
-		ExchangeData string  `json:"exchangedate"`
+		ExchangeData string  `json:"exchange_data"`
 	}
 )
 

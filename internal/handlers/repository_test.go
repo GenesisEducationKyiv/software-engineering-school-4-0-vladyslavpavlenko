@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
+
 	"github.com/stretchr/testify/mock"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
-
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
@@ -53,7 +53,7 @@ func (m *MockFetcher) Fetch(ctx context.Context, base, target string) (string, e
 
 // TestNewRepo tests the creation of a new repository
 func TestNewRepo(t *testing.T) {
-	appConfig := &config.AppConfig{}
+	appConfig := &config.Config{}
 	services := &handlers.Services{
 		Fetcher:    &MockFetcher{},
 		Subscriber: &MockSubscriber{},
@@ -67,7 +67,7 @@ func TestNewRepo(t *testing.T) {
 
 // TestNewHandlers tests setting the repository
 func TestNewHandlers(t *testing.T) {
-	appConfig := &config.AppConfig{}
+	appConfig := &config.Config{}
 	services := &handlers.Services{
 		Fetcher:    &MockFetcher{},
 		Subscriber: &MockSubscriber{},

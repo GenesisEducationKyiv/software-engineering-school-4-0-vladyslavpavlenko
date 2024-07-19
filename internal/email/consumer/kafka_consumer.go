@@ -3,9 +3,11 @@ package consumer
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"time"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/pkg/logger"
+	"go.uber.org/zap"
 
 	"github.com/pkg/errors"
 
@@ -29,10 +31,13 @@ type KafkaConsumer struct {
 	db     dbConnection
 	Reader *kafka.Reader
 	Sender Sender
+	logger *logger.Logger
 }
 
 // NewKafkaConsumer initializes a new KafkaConsumer.
-func NewKafkaConsumer(kafkaURL, topic string, partition int, groupID string, sender Sender, db dbConnection) (*KafkaConsumer, error) {
+func NewKafkaConsumer(kafkaURL, topic string, partition int, groupID string,
+	sender Sender, db dbConnection, l *logger.Logger,
+) (*KafkaConsumer, error) {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        []string{kafkaURL},
 		Topic:          topic,
@@ -46,24 +51,40 @@ func NewKafkaConsumer(kafkaURL, topic string, partition int, groupID string, sen
 		return nil, errors.Wrap(err, "failed to migrate offset")
 	}
 
-	return &KafkaConsumer{Reader: reader, Sender: sender, db: db}, nil
+	if l == nil {
+		return nil, errors.New("logger cannot be nil")
+	}
+
+	return &KafkaConsumer{Reader: reader, Sender: sender, db: db, logger: l}, nil
 }
 
 // Consume is a worker that consumes messages from Kafka and processes them
 // to send an email using the Sender interface.
 func (c *KafkaConsumer) Consume(ctx context.Context) {
 	for {
+		// Check if context is canceled before attempting to fetch a message
+		select {
+		case <-ctx.Done():
+			c.logger.Warn("shutting down consumer...", zap.String("cause", "context canceled"))
+			return
+		default:
+		}
+
 		// Attempt to fetch a message from Kafka
 		m, err := c.Reader.FetchMessage(ctx)
 		if err != nil {
-			log.Printf("Failed to read message: %v", err)
+			if errors.Is(err, context.Canceled) {
+				c.logger.Warn("shutting down consumer...", zap.String("cause", "context canceled"))
+				return
+			}
+			c.logger.Error("failed to read message", zap.Error(err))
 			continue
 		}
 
 		// Attempt to deserialize the fetched message
 		data, err := outbox.DeserializeData(m.Value)
 		if err != nil {
-			log.Printf("Failed to deserialize data from message at offset %d: %v", m.Offset, err)
+			c.logger.Error("failed to deserialize data", zap.Int64("offset", m.Offset), zap.Error(err))
 			continue
 		}
 
@@ -74,27 +95,32 @@ func (c *KafkaConsumer) Consume(ctx context.Context) {
 		keyString := string(m.Key)
 		eventID, err := strconv.ParseUint(keyString, 10, 64)
 		if err != nil {
-			log.Printf("Failed to parse event ID from key: %v", err)
+			c.logger.Error("failed to parse event id", zap.Error(err))
 			continue
+		}
+
+		sData, err := data.Serialize()
+		if err != nil {
+			c.logger.Error("failed to serialize data", zap.Error(err))
 		}
 
 		consumedEvent := ConsumedEvent{
 			ID:         uint(eventID),
-			Data:       data.Serialize(),
+			Data:       sData,
 			ConsumedAt: time.Now(),
 		}
 
 		// Attempt to add the consumed event to the database
 		if err = c.db.AddConsumedEvent(consumedEvent); err != nil {
-			log.Printf("Failed to record consumed event at offset %d: %v", m.Offset, err)
+			c.logger.Error("failed to record consumed event", zap.Int64("offset", m.Offset), zap.Error(err))
 			continue
 		}
 
 		// Commit the offset back to Kafka to mark the message as processed
 		if err = c.Reader.CommitMessages(ctx, m); err != nil {
-			log.Printf("Failed to commit message offset %d: %v", m.Offset, err)
+			c.logger.Error("failed to commit message", zap.Int64("offset", m.Offset), zap.Error(err))
 		} else {
-			log.Printf("Offset committed successfully for message at offset: %d", m.Offset)
+			c.logger.Error("offset committed", zap.Int64("offset", m.Offset))
 		}
 	}
 }
@@ -106,10 +132,10 @@ func (c *KafkaConsumer) sendMessage(data outbox.Data) {
 		Body:    fmt.Sprintf("The current exchange rate for USD to UAH is %.2f.", data.Rate),
 	}
 
-	log.Printf("Sending email to %s", data.Email)
+	c.logger.Debug("sending email", zap.String("email", data.Email))
 
 	err := c.Sender.Send(params)
 	if err != nil {
-		log.Printf("Failed to send email: %v", err)
+		c.logger.Error("failed to send email", zap.Error(err))
 	}
 }

@@ -2,7 +2,6 @@ package outbox
 
 import (
 	"encoding/json"
-	"log"
 	"time"
 )
 
@@ -20,13 +19,12 @@ type Data struct {
 }
 
 // Serialize takes a Data struct and serializes it to a JSON string.
-func (d Data) Serialize() string {
+func (d Data) Serialize() (string, error) {
 	bytes, err := json.Marshal(d)
 	if err != nil {
-		log.Println(err)
-		return ""
+		return "", err
 	}
-	return string(bytes)
+	return string(bytes), nil
 }
 
 // DeserializeData deserializes JSON string to Data struct
