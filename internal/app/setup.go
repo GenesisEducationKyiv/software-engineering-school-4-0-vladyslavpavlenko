@@ -2,8 +2,11 @@ package app
 
 import (
 	"fmt"
-	"log"
 	"net/http"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/pkg/logger"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/subscriber/gormsubscriber"
 
@@ -15,7 +18,6 @@ import (
 
 	outboxpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/chain"
@@ -46,7 +48,7 @@ type services struct {
 	Outbox     producerpkg.Outbox
 }
 
-func setup(app *config.AppConfig) (*services, error) {
+func setup(app *config.Config) (*services, error) {
 	envs, err := readEnv()
 	if err != nil {
 		return nil, fmt.Errorf("error reading the .env file: %w", err)
@@ -59,29 +61,32 @@ func setup(app *config.AppConfig) (*services, error) {
 		envs.DBPass,
 		envs.DBName)
 
-	dbConn, err := connectDB(dsn)
+	dbConn, err := connectDB(dsn, app.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("error conntecting to the database: %w", err)
 	}
 
-	err = migrateDB(dbConn)
+	err = migrateDB(dbConn, app.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("error runnning database migrations: %w", err)
 	}
 
-	fetcher := setupFetchersChain(&http.Client{})
+	fetcher := setupFetchersChain(&http.Client{}, app.Logger)
 
 	sender, err := setupSender(&envs)
 	if err != nil {
 		return nil, fmt.Errorf("failed set up sender: %w", err)
 	}
 
-	outbox, err := gormoutbox.NewOutbox(dbConn)
+	outbox, err := gormoutbox.New(dbConn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create outbox: %w", err)
 	}
 
-	subscriber := gormsubscriber.NewSubscriber(dbConn.DB())
+	subscriber, err := gormsubscriber.NewSubscriber(dbConn.DB(), app.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup subscriber service: %w", err)
+	}
 
 	notifier := notifierpkg.NewNotifier(subscriber, fetcher, outbox)
 
@@ -111,10 +116,10 @@ func readEnv() (envVariables, error) {
 }
 
 // connectDB sets up a GORM database connection and returns an interface.
-func connectDB(dsn string) (*gormstorage.Connection, error) {
+func connectDB(dsn string, log *logger.Logger) (*gormstorage.Connection, error) {
 	var conn gormstorage.Connection
 
-	err := conn.Setup(dsn)
+	err := conn.Setup(dsn, log)
 	if err != nil {
 		return nil, err
 	}
@@ -123,15 +128,15 @@ func connectDB(dsn string) (*gormstorage.Connection, error) {
 }
 
 // migrateDB runs database migrations.
-func migrateDB(conn *gormstorage.Connection) error {
-	log.Println("Running migrations...")
+func migrateDB(conn *gormstorage.Connection, log *logger.Logger) error {
+	log.Debug("running migrations...")
 
 	err := conn.Migrate(&models.Subscription{}, &outboxpkg.Event{})
 	if err != nil {
 		return fmt.Errorf("error running migrations: %w", err)
 	}
 
-	log.Println("Database migrated!")
+	log.Debug("database migrated!")
 
 	return nil
 }
@@ -150,15 +155,15 @@ func setupSender(envs *envVariables) (sender *email.GomailSender, err error) {
 }
 
 // setupFetchersChain sets up a chain of responsibility for fetchers.
-func setupFetchersChain(client *http.Client) *chain.Node {
+func setupFetchersChain(c *http.Client, l *logger.Logger) *chain.Node {
 	coinbaseFetcher := rateapi.NewFetcherWithLogger("coinbase",
-		rateapi.NewCoinbaseFetcher(client))
+		rateapi.NewCoinbaseFetcher(c), l)
 
 	nbuFetcher := rateapi.NewFetcherWithLogger("bank.gov.ua",
-		rateapi.NewNBUFetcher(client))
+		rateapi.NewNBUFetcher(c), l)
 
 	privatFetcher := rateapi.NewFetcherWithLogger("api.privatbank.ua",
-		rateapi.NewPrivatFetcher(client))
+		rateapi.NewPrivatFetcher(c), l)
 
 	coinbaseNode := chain.NewNode(coinbaseFetcher)
 	nbuNode := chain.NewNode(nbuFetcher)

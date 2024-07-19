@@ -1,19 +1,17 @@
 package main
 
 import (
-	"log"
-	"os"
-
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
+	"github.com/vladyslavpavlenko/genesis-api-project/pkg/logger"
 )
 
 func main() {
-	appConfig := config.NewAppConfig()
+	a := config.New()
+	a.Logger = logger.New()
 
-	err := app.Run(appConfig)
+	err := app.Run(a)
 	if err != nil {
-		log.Printf("Error: %v\n", err)
-		os.Exit(1)
+		a.Logger.Fatal(err.Error())
 	}
 }

@@ -1,15 +1,15 @@
 package config
 
 import (
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/notifier"
+	"github.com/vladyslavpavlenko/genesis-api-project/pkg/logger"
 )
 
-// AppConfig holds the application config.
-type AppConfig struct {
-	Notifier notifier.Notifier
+// Config holds the application config.
+type Config struct {
+	Logger *logger.Logger
 }
 
-// NewAppConfig creates a new AppConfig.
-func NewAppConfig() *AppConfig {
-	return &AppConfig{}
+// New creates a new Config.
+func New() *Config {
+	return &Config{}
 }
