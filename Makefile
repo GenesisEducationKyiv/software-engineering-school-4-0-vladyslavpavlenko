@@ -3,29 +3,17 @@ API_APP_BINARY=apiApp
 ## up: starts all containers in the background without forcing build.
 up:
 	@echo "Starting Docker images..."
-	docker-compose up -d
+	docker compose up -d
 	@echo "Docker images started!"
 
 ## up_build: stops docker-compose (if running), builds all projects and starts docker compose.
-up_build: build_app
-	@echo "Stopping docker images (if running...)"
-	docker-compose down
+up_build: down
 	@echo "Building (when required) and starting docker images..."
-	docker-compose up --build -d
+	docker compose up --build -d
 	@echo "Docker images built and started!"
-
-## restart: stops and then rebuilds and restarts docker-compose.
-restart: down up_build
-	@echo "Restarting docker images..."
 
 ## down: stop docker compose.
 down:
 	@echo "Stopping docker compose..."
-	docker-compose down
-	@echo "Done!"
-
-## build_app: builds the app binary as a linux executable.
-build_app:
-	@echo "Building app binary..."
-	cd . && env GOOS=linux CGO_ENABLED=0 go build -o ${API_APP_BINARY} ./cmd/api
+	docker compose down
 	@echo "Done!"
