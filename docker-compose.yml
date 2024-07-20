@@ -70,3 +70,19 @@ services:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
       - ./app/logs:/var/log/app
+
+  victoriadb:
+    image: victoriametrics/victoria-metrics
+    ports:
+      - "8428:8428"
+    command: '-storageDataPath=/victoria-metrics-data'
+
+  vmagent:
+    image: victoriametrics/vmagent
+    ports:
+      - "8429:8429"
+    command: |
+      -remoteWrite.url=http://victoriadb:8428/api/v1/write
+      -promscrape.config=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro

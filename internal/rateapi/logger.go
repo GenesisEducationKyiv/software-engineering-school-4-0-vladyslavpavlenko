@@ -31,10 +31,10 @@ func NewFetcherWithLogger(name string, f fetcher, l *logger.Logger) *FetcherWith
 func (f *FetcherWithLogger) Fetch(ctx context.Context, base, target string) (string, error) {
 	rate, err := f.fetcher.Fetch(ctx, base, target)
 	if err != nil {
-		f.l.Error("fetch error", zap.String("fetcher", f.name), zap.Error(err))
+		f.l.Error("error fetching rate", zap.String("fetcher", f.name), zap.Error(err))
 		return "", err
 	}
 
-	f.l.Info("fetch successful", zap.String("fetcher", f.name), zap.String("rate", rate))
+	f.l.Info("rate fetched", zap.String("fetcher", f.name), zap.String("rate", rate))
 	return rate, nil
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/VictoriaMetrics/metrics"
 	emailpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/email"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/pkg/jsonutils"
@@ -38,25 +39,6 @@ func (m *Repository) GetRate(w http.ResponseWriter, r *http.Request) {
 
 	// Send the response back
 	_ = jsonutils.WriteJSON(w, http.StatusOK, payload)
-}
-
-// parseEmailFromRequest parses the email from the multipart form and validates it.
-func parseEmailFromRequest(r *http.Request) (string, error) {
-	err := r.ParseMultipartForm(10 << 20)
-	if err != nil {
-		return "", errors.New("failed to parse form")
-	}
-
-	emailAddr := r.FormValue("email")
-	if emailAddr == "" {
-		return "", errors.New("email is required")
-	}
-
-	if !emailpkg.Email(emailAddr).Validate() {
-		return "", errors.New("invalid email")
-	}
-
-	return emailAddr, nil
 }
 
 // Subscribe handles the `/subscribe` request.
@@ -119,4 +101,29 @@ func (m *Repository) SendEmails(w http.ResponseWriter, _ *http.Request) {
 
 	// Send the response back
 	_ = jsonutils.WriteJSON(w, http.StatusOK, payload)
+}
+
+// Metrics serves the application metrics in the Prometheus format.
+func (m *Repository) Metrics(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+	metrics.WritePrometheus(w, false)
+}
+
+// parseEmailFromRequest parses the email from the multipart form and validates it.
+func parseEmailFromRequest(r *http.Request) (string, error) {
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		return "", errors.New("failed to parse form")
+	}
+
+	emailAddr := r.FormValue("email")
+	if emailAddr == "" {
+		return "", errors.New("email is required")
+	}
+
+	if !emailpkg.Email(emailAddr).Validate() {
+		return "", errors.New("invalid email")
+	}
+
+	return emailAddr, nil
 }
