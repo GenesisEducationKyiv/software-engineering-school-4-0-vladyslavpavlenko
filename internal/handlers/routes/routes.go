@@ -9,7 +9,7 @@ import (
 	m "github.com/vladyslavpavlenko/genesis-api-project/internal/handlers/middleware"
 )
 
-func Routes() http.Handler {
+func Routes(h *handlers.Handlers) http.Handler {
 	mux := chi.NewRouter()
 
 	mux.Use(middleware.Heartbeat("/health"))
@@ -17,14 +17,14 @@ func Routes() http.Handler {
 
 	mux.Route("/api", func(mux chi.Router) {
 		mux.Route("/v1", func(mux chi.Router) {
-			mux.Get("/rate", handlers.Repo.GetRate)
-			mux.Post("/subscribe", handlers.Repo.Subscribe)
-			mux.Post("/unsubscribe", handlers.Repo.Unsubscribe)
-			mux.Post("/sendEmails", handlers.Repo.SendEmails)
+			mux.Get("/rate", h.GetRate)
+			mux.Post("/subscribe", h.Subscribe)
+			mux.Post("/unsubscribe", h.Unsubscribe)
+			mux.Post("/sendEmails", h.SendEmails)
 		})
 	})
 
-	mux.Get("/metrics", handlers.Repo.Metrics)
+	mux.Get("/metrics", h.Metrics)
 
 	return mux
 }

@@ -8,42 +8,35 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/notifier"
 )
 
-type fetcher interface {
-	Fetch(ctx context.Context, base, target string) (string, error)
-}
+type (
+	fetcher interface {
+		Fetch(ctx context.Context, base, target string) (string, error)
+	}
 
-// Services is the repository type.
+	subscriber interface {
+		AddSubscription(emailAddr string) error
+		DeleteSubscription(emailAddr string) error
+		GetSubscriptions(limit, offset int) ([]models.Subscription, error)
+	}
+)
+
+// Services is the repository type for the services necessary for API handlers.
 type Services struct {
 	Fetcher    fetcher
 	Notifier   *notifier.Notifier
 	Subscriber subscriber
 }
 
-// Repository is the repository type
-type Repository struct {
+// Handlers is the repository type for API handlers.
+type Handlers struct {
 	App      *config.Config
 	Services *Services
 }
 
-// subscriber defines an interface for managing subscriptions.
-type subscriber interface {
-	AddSubscription(emailAddr string) error
-	DeleteSubscription(emailAddr string) error
-	GetSubscriptions(limit, offset int) ([]models.Subscription, error)
-}
-
-// Repo the repository used by the handlers
-var Repo *Repository
-
-// NewRepo creates a new Repository
-func NewRepo(a *config.Config, services *Services) *Repository {
-	return &Repository{
+// NewHandlers creates new Handlers.
+func NewHandlers(a *config.Config, services *Services) *Handlers {
+	return &Handlers{
 		App:      a,
 		Services: services,
 	}
-}
-
-// NewHandlers sets the Repository for handlers
-func NewHandlers(r *Repository) {
-	Repo = r
 }

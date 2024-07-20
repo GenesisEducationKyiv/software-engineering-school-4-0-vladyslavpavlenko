@@ -19,9 +19,9 @@ type rateUpdate struct {
 }
 
 // GetRate handles the `/rateapi` request.
-func (m *Repository) GetRate(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) GetRate(w http.ResponseWriter, r *http.Request) {
 	// Perform the fetching operation
-	price, err := m.Services.Fetcher.Fetch(r.Context(), "USD", "UAH")
+	price, err := h.Services.Fetcher.Fetch(r.Context(), "USD", "UAH")
 	if err != nil {
 		_ = jsonutils.ErrorJSON(w, fmt.Errorf("error fetching rate update: %w", err), http.StatusServiceUnavailable)
 		return
@@ -42,14 +42,14 @@ func (m *Repository) GetRate(w http.ResponseWriter, r *http.Request) {
 }
 
 // Subscribe handles the `/subscribe` request.
-func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Subscribe(w http.ResponseWriter, r *http.Request) {
 	email, err := parseEmailFromRequest(r)
 	if err != nil {
 		_ = jsonutils.ErrorJSON(w, err)
 		return
 	}
 
-	err = m.Services.Subscriber.AddSubscription(email)
+	err = h.Services.Subscriber.AddSubscription(email)
 	if err != nil {
 		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
 		return
@@ -64,14 +64,14 @@ func (m *Repository) Subscribe(w http.ResponseWriter, r *http.Request) {
 }
 
 // Unsubscribe handles the `/unsubscribe` request.
-func (m *Repository) Unsubscribe(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 	email, err := parseEmailFromRequest(r)
 	if err != nil {
 		_ = jsonutils.ErrorJSON(w, err)
 		return
 	}
 
-	err = m.Services.Subscriber.DeleteSubscription(email)
+	err = h.Services.Subscriber.DeleteSubscription(email)
 	if err != nil {
 		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
 		return
@@ -86,9 +86,9 @@ func (m *Repository) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 }
 
 // SendEmails handles the `/sendEmails` request.
-func (m *Repository) SendEmails(w http.ResponseWriter, _ *http.Request) {
+func (h *Handlers) SendEmails(w http.ResponseWriter, _ *http.Request) {
 	// Produce mailing events
-	err := m.Services.Notifier.Start()
+	err := h.Services.Notifier.Start()
 	if err != nil {
 		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
 		return
@@ -104,7 +104,7 @@ func (m *Repository) SendEmails(w http.ResponseWriter, _ *http.Request) {
 }
 
 // Metrics serves the application metrics in the Prometheus format.
-func (m *Repository) Metrics(w http.ResponseWriter, _ *http.Request) {
+func (h *Handlers) Metrics(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	metrics.WritePrometheus(w, false)
 }

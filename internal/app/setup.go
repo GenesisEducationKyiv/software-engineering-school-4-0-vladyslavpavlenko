@@ -25,7 +25,7 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
+	handlerspkg "github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
 )
 
 // envVariables holds environment variables used in the application.
@@ -46,6 +46,7 @@ type services struct {
 	Notifier   *notifierpkg.Notifier
 	Subscriber *gormsubscriber.Subscriber
 	Outbox     producerpkg.Outbox
+	Handlers   *handlerspkg.Handlers
 }
 
 func setup(app *config.Config, l *logger.Logger) (*services, error) {
@@ -90,18 +91,18 @@ func setup(app *config.Config, l *logger.Logger) (*services, error) {
 
 	notifier := notifierpkg.NewNotifier(subscriber, fetcher, outbox)
 
-	repo := handlers.NewRepo(app, &handlers.Services{
+	handlers := handlerspkg.NewHandlers(app, &handlerspkg.Services{
 		Fetcher:    fetcher,
 		Notifier:   notifier,
 		Subscriber: subscriber,
 	})
-	handlers.NewHandlers(repo)
 
 	return &services{
-		DBConn:  dbConn,
-		Sender:  sender,
-		Fetcher: fetcher,
-		Outbox:  outbox,
+		DBConn:   dbConn,
+		Sender:   sender,
+		Fetcher:  fetcher,
+		Outbox:   outbox,
+		Handlers: handlers,
 	}, nil
 }
 

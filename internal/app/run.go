@@ -103,7 +103,7 @@ func Run(app *config.Config, l *logger.Logger) error {
 	l.Info(fmt.Sprintf("running on port %d", webPort), zap.Int("port", webPort))
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", webPort),
-		Handler:           routes.Routes(),
+		Handler:           routes.Routes(svcs.Handlers),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
