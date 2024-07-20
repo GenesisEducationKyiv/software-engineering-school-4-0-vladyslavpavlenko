@@ -19,23 +19,15 @@ var (
 )
 
 type Subscriber struct {
-	db     *gorm.DB
-	logger *logger.Logger
+	db *gorm.DB
+	l  *logger.Logger
 }
 
 // NewSubscriber creates a new Subscriber.
 func NewSubscriber(db *gorm.DB, l *logger.Logger) (*Subscriber, error) {
-	if db == nil {
-		return nil, errors.New("db cannot be nil")
-	}
-
-	if l == nil {
-		return nil, errors.New("logger cannot be nil")
-	}
-
 	return &Subscriber{
-		db:     db,
-		logger: l,
+		db: db,
+		l:  l,
 	}, nil
 }
 
@@ -43,20 +35,20 @@ func NewSubscriber(db *gorm.DB, l *logger.Logger) (*Subscriber, error) {
 func (s *Subscriber) AddSubscription(email string) error {
 	orchestrator, err := NewSagaOrchestrator(email, s.db)
 	if err != nil {
-		s.logger.Error("failed to create orchestrator", zap.Error(err))
+		s.l.Error("failed to create orchestrator", zap.Error(err))
 		return ErrInternal
 	}
 
 	err = orchestrator.Run(s)
 	if err != nil {
 		if errors.Is(err, ErrDuplicateSubscription) {
-			s.logger.Info(ErrDuplicateSubscription.Error(),
+			s.l.Info(ErrDuplicateSubscription.Error(),
 				zap.String("email", email),
 			)
 			return ErrDuplicateSubscription
 		}
 
-		s.logger.Error("error adding subscription",
+		s.l.Error("error adding subscription",
 			zap.String("email", email),
 			zap.Error(err),
 		)
@@ -64,7 +56,7 @@ func (s *Subscriber) AddSubscription(email string) error {
 		return ErrInternal
 	}
 
-	s.logger.Info("new subscription", zap.String("email", email))
+	s.l.Info("new subscription", zap.String("email", email))
 
 	return nil
 }
@@ -76,7 +68,7 @@ func (s *Subscriber) DeleteSubscription(email string) error {
 
 	result := s.db.WithContext(ctx).Where("email = ?", email).Delete(&models.Subscription{})
 	if result.Error != nil {
-		s.logger.Error("failed to delete subscription",
+		s.l.Error("failed to delete subscription",
 			zap.String("email", email),
 			zap.Error(result.Error))
 		return ErrInternal
@@ -86,7 +78,7 @@ func (s *Subscriber) DeleteSubscription(email string) error {
 		return ErrNonExistentSubscription
 	}
 
-	s.logger.Info("subscription deleted", zap.String("email", email))
+	s.l.Info("subscription deleted", zap.String("email", email))
 
 	return nil
 }

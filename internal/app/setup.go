@@ -48,7 +48,7 @@ type services struct {
 	Outbox     producerpkg.Outbox
 }
 
-func setup(app *config.Config) (*services, error) {
+func setup(app *config.Config, l *logger.Logger) (*services, error) {
 	envs, err := readEnv()
 	if err != nil {
 		return nil, fmt.Errorf("error reading the .env file: %w", err)
@@ -61,17 +61,17 @@ func setup(app *config.Config) (*services, error) {
 		envs.DBPass,
 		envs.DBName)
 
-	dbConn, err := connectDB(dsn, app.Logger)
+	dbConn, err := connectDB(dsn, l)
 	if err != nil {
 		return nil, fmt.Errorf("error conntecting to the database: %w", err)
 	}
 
-	err = migrateDB(dbConn, app.Logger)
+	err = migrateDB(dbConn, l)
 	if err != nil {
 		return nil, fmt.Errorf("error runnning database migrations: %w", err)
 	}
 
-	fetcher := setupFetchersChain(&http.Client{}, app.Logger)
+	fetcher := setupFetchersChain(&http.Client{}, l)
 
 	sender, err := setupSender(&envs)
 	if err != nil {
@@ -83,7 +83,7 @@ func setup(app *config.Config) (*services, error) {
 		return nil, fmt.Errorf("failed to create outbox: %w", err)
 	}
 
-	subscriber, err := gormsubscriber.NewSubscriber(dbConn.DB(), app.Logger)
+	subscriber, err := gormsubscriber.NewSubscriber(dbConn.DB(), l)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup subscriber service: %w", err)
 	}
@@ -116,10 +116,10 @@ func readEnv() (envVariables, error) {
 }
 
 // connectDB sets up a GORM database connection and returns an interface.
-func connectDB(dsn string, log *logger.Logger) (*gormstorage.Connection, error) {
+func connectDB(dsn string, l *logger.Logger) (*gormstorage.Connection, error) {
 	var conn gormstorage.Connection
 
-	err := conn.Setup(dsn, log)
+	err := conn.Setup(dsn, l)
 	if err != nil {
 		return nil, err
 	}
@@ -128,15 +128,15 @@ func connectDB(dsn string, log *logger.Logger) (*gormstorage.Connection, error) 
 }
 
 // migrateDB runs database migrations.
-func migrateDB(conn *gormstorage.Connection, log *logger.Logger) error {
-	log.Debug("running migrations...")
+func migrateDB(conn *gormstorage.Connection, l *logger.Logger) error {
+	l.Debug("running migrations...")
 
 	err := conn.Migrate(&models.Subscription{}, &outboxpkg.Event{})
 	if err != nil {
 		return fmt.Errorf("error running migrations: %w", err)
 	}
 
-	log.Debug("database migrated!")
+	l.Debug("database migrated!")
 
 	return nil
 }

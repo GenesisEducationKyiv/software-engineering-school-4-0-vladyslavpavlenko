@@ -4,14 +4,15 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/pkg/logger"
+	"go.uber.org/zap"
 )
 
 func main() {
 	a := config.New()
-	a.Logger = logger.New()
+	l := logger.New()
 
-	err := app.Run(a)
+	err := app.Run(a, l)
 	if err != nil {
-		a.Logger.Fatal(err.Error())
+		l.Fatal("failed to start application", zap.Error(err))
 	}
 }

@@ -32,7 +32,7 @@ type KafkaProducer struct {
 	db     dbConnection
 	Writer *kafka.Writer
 	Outbox Outbox
-	logger *logger.Logger
+	l      *logger.Logger
 }
 
 // NewKafkaProducer initializes a new KafkaProducer.
@@ -48,14 +48,10 @@ func NewKafkaProducer(kafkaURL string, o Outbox, db dbConnection, l *logger.Logg
 		return nil, errors.Wrap(err, "failed to migrate offset")
 	}
 
-	if l == nil {
-		return nil, errors.New("logger cannot be nil")
-	}
-
-	return &KafkaProducer{Writer: w, Outbox: o, db: db, logger: l}, nil
+	return &KafkaProducer{Writer: w, Outbox: o, db: db, l: l}, nil
 }
 
-// NewTopic creates a new kafka.TopicConfig if it does not exist.
+// NewTopic creates a new kafka.TopicConfig if it doesn't exist.
 func (p *KafkaProducer) NewTopic(topic string, partitions, replicationFactor int) error {
 	conn, err := kafka.Dial("tcp", p.Writer.Addr.String())
 	if err != nil {
@@ -89,7 +85,7 @@ func (p *KafkaProducer) Produce(ctx context.Context, frequency time.Duration, to
 	for {
 		select {
 		case <-ctx.Done():
-			p.logger.Info("shutting down worker...")
+			p.l.Info("shutting down worker...")
 			return
 		case <-ticker.C:
 			p.processEvents(ctx, topic, partition)
@@ -101,14 +97,14 @@ func (p *KafkaProducer) processEvents(ctx context.Context, topic string, partiti
 	// Start a transaction
 	tx, err := p.db.BeginTransaction()
 	if err != nil {
-		p.logger.Error("failed to start transaction", zap.Error(err))
+		p.l.Error("failed to start transaction", zap.Error(err))
 		return
 	}
 
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
-			p.logger.Debugf("recovered from panic: %v, transaction rolled back", r)
+			p.l.Error("recovered from panic; transaction rolled back", zap.Any("recover", r))
 		}
 	}()
 
@@ -117,7 +113,7 @@ func (p *KafkaProducer) processEvents(ctx context.Context, topic string, partiti
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			tx.Rollback()
-			p.logger.Debugf("failed to fetch last offset: %v", err)
+			p.l.Debug("failed to fetch last offset", zap.Error(err))
 			return
 		}
 
@@ -127,14 +123,14 @@ func (p *KafkaProducer) processEvents(ctx context.Context, topic string, partiti
 			Offset:    0,
 		}
 	} else {
-		p.logger.Debugf("last offset fetched: %d", lastOffset.Offset)
+		p.l.Debug("last offset fetched", zap.Uint("offset", lastOffset.Offset))
 	}
 
 	// Fetch unpublished events based on the last offset
 	events, err := p.db.FetchUnpublishedEvents(lastOffset.Offset)
 	if err != nil {
 		tx.Rollback()
-		p.logger.Error("failed to fetch unpublished events", zap.Error(err))
+		p.l.Error("failed to fetch unpublished events", zap.Error(err))
 		return
 	}
 
@@ -152,28 +148,28 @@ func (p *KafkaProducer) processEvents(ctx context.Context, topic string, partiti
 			Partition: partition,
 		}
 
-		p.logger.Debug("sending message to kafka", zap.Int("message_id", int(event.ID)))
+		p.l.Info("sending message to kafka", zap.Int("message_id", int(event.ID)))
 
 		if err = p.Writer.WriteMessages(ctx, *msg); err != nil {
 			tx.Rollback()
-			p.logger.Error("failed to send message", zap.Int("message_id", int(event.ID)), zap.Error(err))
+			p.l.Error("failed to send message", zap.Int("message_id", int(event.ID)), zap.Error(err))
 			return
 		}
-		p.logger.Debug("message sent", zap.Int("message_id", int(event.ID)))
+		p.l.Debug("message sent", zap.Int("message_id", int(event.ID)))
 
 		lastOffset.Offset = event.ID
 		if err = p.db.UpdateOffset(&lastOffset); err != nil {
 			tx.Rollback()
-			p.logger.Error("failed to update offset", zap.Error(err), zap.Int("message_id", int(event.ID)))
+			p.l.Error("failed to update offset", zap.Error(err), zap.Int("message_id", int(event.ID)))
 			return
 		}
-		p.logger.Debug("offset updated", zap.Int("message_id", int(event.ID)))
+		p.l.Debug("offset updated", zap.Int("message_id", int(event.ID)))
 	}
 
 	// Commit the transaction if all events are processed successfully
 	if err = tx.Commit().Error; err != nil {
-		p.logger.Warn("transaction failed", zap.Error(err))
+		p.l.Warn("transaction failed", zap.Error(err))
 		return
 	}
-	p.logger.Debug("all events processed")
+	p.l.Debug("all kafka events processed", zap.String("topic", topic), zap.Int("partition", partition))
 }

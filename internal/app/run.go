@@ -51,18 +51,18 @@ type producer interface {
 }
 
 // Run is the application running process.
-func Run(app *config.Config) error {
-	appServices, err := setup(app)
+func Run(app *config.Config, l *logger.Logger) error {
+	svcs, err := setup(app, l)
 	if err != nil {
 		return err
 	}
-	defer appServices.DBConn.Close()
+	defer svcs.DBConn.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	s := schedulerpkg.NewCronScheduler()
-	if err = scheduleEmails(s, appServices.Notifier, app.Logger); err != nil {
+	if err = scheduleEmails(s, svcs.Notifier, l); err != nil {
 		return fmt.Errorf("failed to schedule emails: %w", err)
 	}
 	s.Start()
@@ -71,7 +71,7 @@ func Run(app *config.Config) error {
 	kafkaURL := os.Getenv("KAFKA_URL")
 	kafkaTopic := "emails-topic"
 
-	kafkaProducer, err := producerpkg.NewKafkaProducer(kafkaURL, appServices.Outbox, appServices.DBConn, app.Logger)
+	kafkaProducer, err := producerpkg.NewKafkaProducer(kafkaURL, svcs.Outbox, svcs.DBConn, l)
 	if err != nil {
 		return fmt.Errorf("failed to create kafka producer: %w", err)
 	}
@@ -82,7 +82,7 @@ func Run(app *config.Config) error {
 		return fmt.Errorf("failed to create topic: %w", err)
 	}
 	kafkaProducer.SetTopic(kafkaTopic)
-	go eventProducer(ctx, kafkaProducer, kafkaTopic, 1, app.Logger)
+	go eventProducer(ctx, kafkaProducer, kafkaTopic, 1, l)
 
 	kafkaGroupID := "emails-group"
 
@@ -91,29 +91,29 @@ func Run(app *config.Config) error {
 		kafkaTopic,
 		0,
 		kafkaGroupID,
-		appServices.Sender,
-		appServices.DBConn,
-		app.Logger)
+		svcs.Sender,
+		svcs.DBConn,
+		l)
 	if err != nil {
 		return fmt.Errorf("failed to create kafka consumer: %w", err)
 	}
 	defer kafkaConsumer.Reader.Close()
-	go eventConsumer(ctx, kafkaConsumer, app.Logger)
+	go eventConsumer(ctx, kafkaConsumer, l)
 
-	app.Logger.Info(fmt.Sprintf("running on port %d", webPort), zap.Int("port", webPort))
+	l.Info(fmt.Sprintf("running on port %d", webPort), zap.Int("port", webPort))
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", webPort),
 		Handler:           routes.Routes(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	shutdown(srv, cancel, app.Logger)
+	shutdown(srv, cancel, l)
 
 	return nil
 }
 
 // shutdown gracefully shuts down the application.
-func shutdown(srv *http.Server, cancelFunc context.CancelFunc, log *logger.Logger) {
+func shutdown(srv *http.Server, cancelFunc context.CancelFunc, l *logger.Logger) {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
@@ -122,24 +122,24 @@ func shutdown(srv *http.Server, cancelFunc context.CancelFunc, log *logger.Logge
 		cancelFunc() // Cancel context to shut down dispatcher
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		log.Info("shutting down server...")
+		l.Info("shutting down server...")
 		if err := srv.Shutdown(ctx); err != nil {
-			log.Error("failed to gracefully shutdown server", zap.Error(err))
+			l.Error("failed to gracefully shutdown server", zap.Error(err))
 		}
-		log.Info("server has been shutdown")
+		l.Info("server has been shutdown")
 	}()
 
 	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-		log.Fatalf("HTTP server ListenAndServe: %v", err)
+		l.Fatal("failed to shutdown server", zap.Error(err))
 	}
 }
 
 // scheduleEmails sets up a mailing process.
-func scheduleEmails(s scheduler, n *notifier.Notifier, log *logger.Logger) error {
+func scheduleEmails(s scheduler, n *notifier.Notifier, l *logger.Logger) error {
 	_, err := s.Schedule(schedule, func() {
 		err := n.Start()
 		if err != nil {
-			log.Error("error notifying subscribers", zap.Error(err))
+			l.Error("error notifying subscribers", zap.Error(err))
 		}
 	})
 	if err != nil {
@@ -150,19 +150,19 @@ func scheduleEmails(s scheduler, n *notifier.Notifier, log *logger.Logger) error
 }
 
 // eventProducer runs an event dispatcher.
-func eventProducer(ctx context.Context, producer producer, topic string, partition int, log *logger.Logger) {
+func eventProducer(ctx context.Context, producer producer, topic string, partition int, l *logger.Logger) {
 	producer.Produce(ctx, 10*time.Second, topic, partition)
 
 	// Wait for context cancellation to handle graceful shutdown
 	<-ctx.Done()
-	log.Info("shutting down event producer...")
+	l.Info("shutting down event producer...")
 }
 
 // eventConsumer runs an event dispatcher.
-func eventConsumer(ctx context.Context, c consumer, log *logger.Logger) {
+func eventConsumer(ctx context.Context, c consumer, l *logger.Logger) {
 	go c.Consume(ctx)
 
 	// Wait for context cancellation to handle graceful shutdown
 	<-ctx.Done()
-	log.Info("shutting down event consumer...")
+	l.Info("shutting down event consumer...")
 }

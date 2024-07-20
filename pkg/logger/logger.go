@@ -100,52 +100,7 @@ func (l *Logger) Error(msg string, fields ...zap.Field) {
 	l.logger.Error(msg, fields...)
 }
 
-// DPanic logs a message at DPanic level.
-func (l *Logger) DPanic(msg string, fields ...zap.Field) {
-	l.logger.DPanic(msg, fields...)
-}
-
-// Panic logs a message at Panic level.
-func (l *Logger) Panic(msg string, fields ...zap.Field) {
-	l.logger.Panic(msg, fields...)
-}
-
 // Fatal logs a message at Fatal level.
 func (l *Logger) Fatal(msg string, fields ...zap.Field) {
 	l.logger.Fatal(msg, fields...)
-}
-
-// Debugf logs a message at Debug level with a template.
-func (l *Logger) Debugf(template string, args ...any) {
-	l.sugaredLogger.Debugf(template, args...)
-}
-
-// Infof logs a message at Info level with a template.
-func (l *Logger) Infof(template string, args ...any) {
-	l.sugaredLogger.Infof(template, args...)
-}
-
-// Warnf logs a message at Warn level with a template.
-func (l *Logger) Warnf(template string, args ...any) {
-	l.sugaredLogger.Warnf(template, args...)
-}
-
-// Errorf logs a message at Error level with a template.
-func (l *Logger) Errorf(template string, args ...any) {
-	l.sugaredLogger.Errorf(template, args...)
-}
-
-// DPanicf logs a message at DPanic level with a template.
-func (l *Logger) DPanicf(template string, args ...any) {
-	l.sugaredLogger.DPanicf(template, args...)
-}
-
-// Panicf logs a message at Panic level with a template.
-func (l *Logger) Panicf(template string, args ...any) {
-	l.sugaredLogger.Panicf(template, args...)
-}
-
-// Fatalf logs a message at Fatal level with a template.
-func (l *Logger) Fatalf(template string, args ...any) {
-	l.sugaredLogger.Fatalf(template, args...)
 }

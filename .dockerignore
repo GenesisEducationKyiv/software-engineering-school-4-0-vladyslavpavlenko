@@ -2,7 +2,6 @@
 .gitignore
 Dockerfile
 docker-compose.yml
-node_modules
 tmp
 logs
 *.md

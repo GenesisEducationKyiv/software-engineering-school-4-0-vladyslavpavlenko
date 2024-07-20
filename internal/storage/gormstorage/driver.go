@@ -17,8 +17,8 @@ import (
 const RequestTimeout = time.Second * 5
 
 type Connection struct {
-	db     *gorm.DB
-	logger *logger.Logger
+	db *gorm.DB
+	l  *logger.Logger
 }
 
 // DB returns a pointer to gorm.DB.
@@ -28,25 +28,25 @@ func (c *Connection) DB() *gorm.DB {
 
 // Setup sets up a new Connection with a logger.
 func (c *Connection) Setup(dsn string, l *logger.Logger) error {
-	c.logger = l
+	c.l = l
 	var counts int64
 	for {
 		db, err := openDB(dsn)
 		if err != nil {
-			c.logger.Warn("Postgres not yet ready...", zap.Int64("attempt", counts), zap.Error(err))
+			c.l.Error("Postgres not yet ready...", zap.Int64("attempt", counts), zap.Error(err))
 			counts++
 		} else {
-			c.logger.Debug("connected to Postgres!")
+			c.l.Debug("connected to Postgres!")
 			c.db = db
 			return nil
 		}
 
 		if counts > 10 {
-			c.logger.Error("maximum retry attempts exceeded", zap.Error(err))
+			c.l.Error("maximum retry attempts exceeded", zap.Error(err))
 			return err
 		}
 
-		c.logger.Debug("backing off for two seconds...")
+		c.l.Debug("backing off for two seconds...")
 		time.Sleep(2 * time.Second)
 	}
 }

@@ -8,22 +8,22 @@ import (
 	"go.uber.org/zap"
 )
 
-type Fetcher interface {
+type fetcher interface {
 	Fetch(ctx context.Context, base, target string) (string, error)
 }
 
 type FetcherWithLogger struct {
 	name    string
-	fetcher Fetcher
-	logger  *logger.Logger
+	fetcher fetcher
+	l       *logger.Logger
 }
 
 // NewFetcherWithLogger creates and returns a pointer to a new FetcherWithLogger.
-func NewFetcherWithLogger(name string, f Fetcher, l *logger.Logger) *FetcherWithLogger {
+func NewFetcherWithLogger(name string, f fetcher, l *logger.Logger) *FetcherWithLogger {
 	return &FetcherWithLogger{
 		name:    name,
 		fetcher: f,
-		logger:  l,
+		l:       l,
 	}
 }
 
@@ -31,10 +31,10 @@ func NewFetcherWithLogger(name string, f Fetcher, l *logger.Logger) *FetcherWith
 func (f *FetcherWithLogger) Fetch(ctx context.Context, base, target string) (string, error) {
 	rate, err := f.fetcher.Fetch(ctx, base, target)
 	if err != nil {
-		f.logger.Error("fetch error", zap.String("fetcher", f.name), zap.Error(err))
+		f.l.Error("fetch error", zap.String("fetcher", f.name), zap.Error(err))
 		return "", err
 	}
 
-	f.logger.Info("fetch successful", zap.String("fetcher", f.name), zap.String("rate", rate))
+	f.l.Info("fetch successful", zap.String("fetcher", f.name), zap.String("rate", rate))
 	return rate, nil
 }

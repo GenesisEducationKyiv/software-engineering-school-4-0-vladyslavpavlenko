@@ -1,15 +1,20 @@
 package handlers
 
 import (
+	"context"
+
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/notifier"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 )
+
+type fetcher interface {
+	Fetch(ctx context.Context, base, target string) (string, error)
+}
 
 // Services is the repository type.
 type Services struct {
-	Fetcher    rateapi.Fetcher
+	Fetcher    fetcher
 	Notifier   *notifier.Notifier
 	Subscriber subscriber
 }
