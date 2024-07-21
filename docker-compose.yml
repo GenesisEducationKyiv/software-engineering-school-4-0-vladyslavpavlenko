@@ -60,6 +60,7 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+      - "8081:8081"
     restart: always
     env_file:
       - .env
@@ -76,6 +77,8 @@ services:
     ports:
       - "8428:8428"
     command: '-storageDataPath=/victoria-metrics-data'
+    volumes:
+      - ./app/victoriadb-data:/victoria-metrics-data
 
   vmagent:
     image: victoriametrics/vmagent

@@ -104,7 +104,7 @@ func (h *Handlers) SendEmails(w http.ResponseWriter, _ *http.Request) {
 }
 
 // Metrics serves the application metrics in the Prometheus format.
-func (h *Handlers) Metrics(w http.ResponseWriter, _ *http.Request) {
+func Metrics(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	metrics.WritePrometheus(w, false)
 }

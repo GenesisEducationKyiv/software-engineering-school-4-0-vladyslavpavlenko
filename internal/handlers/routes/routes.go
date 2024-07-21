@@ -9,7 +9,8 @@ import (
 	m "github.com/vladyslavpavlenko/genesis-api-project/internal/handlers/middleware"
 )
 
-func Routes(h *handlers.Handlers) http.Handler {
+// API sets up the main application routes and middleware for the API.
+func API(h *handlers.Handlers) http.Handler {
 	mux := chi.NewRouter()
 
 	mux.Use(middleware.Heartbeat("/health"))
@@ -24,7 +25,15 @@ func Routes(h *handlers.Handlers) http.Handler {
 		})
 	})
 
-	mux.Get("/metrics", h.Metrics)
+	return mux
+}
+
+// Metrics sets up the routes for metrics endpoints.
+func Metrics() http.Handler {
+	mux := chi.NewRouter()
+
+	mux.Use(middleware.Heartbeat("/health"))
+	mux.Get("/metrics", handlers.Metrics)
 
 	return mux
 }

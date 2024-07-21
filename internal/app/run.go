@@ -27,8 +27,9 @@ import (
 )
 
 const (
-	webPort  = 8080
-	schedule = "0 10 * * *"
+	apiPort         = 8080
+	metricsPort     = 8081
+	mailingSchedule = "0 10 * * *" // every day at 10 AM
 )
 
 // scheduler is an interface for task scheduling.
@@ -100,20 +101,25 @@ func Run(app *config.Config, l *logger.Logger) error {
 	defer kafkaConsumer.Reader.Close()
 	go eventConsumer(ctx, kafkaConsumer, l)
 
-	l.Info(fmt.Sprintf("running on port %d", webPort), zap.Int("port", webPort))
-	srv := &http.Server{
-		Addr:              fmt.Sprintf(":%d", webPort),
-		Handler:           routes.Routes(svcs.Handlers),
+	apiServer := &http.Server{
+		Addr:              fmt.Sprintf(":%d", apiPort),
+		Handler:           routes.API(svcs.Handlers),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	shutdown(srv, cancel, l)
+	metricsServer := &http.Server{
+		Addr:              fmt.Sprintf(":%d", metricsPort),
+		Handler:           routes.Metrics(),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	shutdown(apiServer, metricsServer, cancel, l)
 
 	return nil
 }
 
 // shutdown gracefully shuts down the application.
-func shutdown(srv *http.Server, cancelFunc context.CancelFunc, l *logger.Logger) {
+func shutdown(apiServer, metricsServer *http.Server, cancelFunc context.CancelFunc, l *logger.Logger) {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
@@ -122,21 +128,39 @@ func shutdown(srv *http.Server, cancelFunc context.CancelFunc, l *logger.Logger)
 		cancelFunc() // Cancel context to shut down dispatcher
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		l.Info("shutting down server...")
-		if err := srv.Shutdown(ctx); err != nil {
-			l.Error("failed to gracefully shutdown server", zap.Error(err))
+		l.Info("shutting down servers...")
+
+		// Shutdown the API server
+		if err := apiServer.Shutdown(ctx); err != nil {
+			l.Error("failed to gracefully shutdown API server", zap.Error(err))
+		} else {
+			l.Info("API server has been shutdown")
 		}
-		l.Info("server has been shutdown")
+
+		// Shutdown the Metrics server
+		if err := metricsServer.Shutdown(ctx); err != nil {
+			l.Error("failed to gracefully shutdown metrics server", zap.Error(err))
+		} else {
+			l.Info("metrics server has been shutdown")
+		}
 	}()
 
-	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-		l.Fatal("failed to shutdown server", zap.Error(err))
+	l.Info(fmt.Sprintf("running API server on port %d", apiPort), zap.Int("port", apiPort))
+	go func() {
+		if err := apiServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			l.Fatal("failed to shutdown API server", zap.Error(err))
+		}
+	}()
+
+	l.Info(fmt.Sprintf("running metrics server on port %d", metricsPort), zap.Int("port", metricsPort))
+	if err := metricsServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		l.Fatal("failed to shutdown metrics server", zap.Error(err))
 	}
 }
 
 // scheduleEmails sets up a mailing process.
 func scheduleEmails(s scheduler, n *notifier.Notifier, l *logger.Logger) error {
-	_, err := s.Schedule(schedule, func() {
+	_, err := s.Schedule(mailingSchedule, func() {
 		err := n.Start()
 		if err != nil {
 			l.Error("error notifying subscribers", zap.Error(err))
