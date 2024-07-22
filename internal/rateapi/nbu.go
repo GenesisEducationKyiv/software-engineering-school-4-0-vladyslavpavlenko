@@ -14,7 +14,7 @@ const (
 	nbuURL = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=%s&json"
 )
 
-var fetchedViaNBU = metrics.NewCounter("fetched_via_nbu")
+var fetchedViaNBUCounter = metrics.NewCounter("fetched_via_nbu_count")
 
 type (
 	NBUFetcher struct {
@@ -70,6 +70,6 @@ func (f *NBUFetcher) Fetch(ctx context.Context, base, _ string) (string, error) 
 
 	rate := fmt.Sprintf("%f", r[0].Rate)
 
-	fetchedViaNBU.Inc()
+	fetchedViaNBUCounter.Inc()
 	return rate, nil
 }

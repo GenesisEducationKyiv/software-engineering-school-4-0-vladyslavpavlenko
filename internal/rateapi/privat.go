@@ -14,7 +14,7 @@ const (
 	privatURL = "https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5"
 )
 
-var fetchedViaPrivat = metrics.NewCounter("fetched_via_privat")
+var fetchedViaPrivatCounter = metrics.NewCounter("fetched_via_privat_count")
 
 type (
 	PrivatFetcher struct {
@@ -64,6 +64,6 @@ func (f *PrivatFetcher) Fetch(ctx context.Context, _, _ string) (string, error) 
 		return "", fmt.Errorf("no data in response")
 	}
 
-	fetchedViaPrivat.Inc()
+	fetchedViaPrivatCounter.Inc()
 	return r[1].Buy, nil
 }

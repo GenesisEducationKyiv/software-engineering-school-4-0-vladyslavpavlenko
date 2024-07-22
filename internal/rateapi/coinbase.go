@@ -14,7 +14,7 @@ const (
 	coinbaseURL = "https://api.coinbase.com/v2/prices/%s-%s/buy"
 )
 
-var fetchedViaCoinbase = metrics.NewCounter("fetched_via_coinbase")
+var fetchedViaCoinbaseCounter = metrics.NewCounter("fetched_via_coinbase_count")
 
 type (
 	CoinbaseFetcher struct {
@@ -68,7 +68,7 @@ func (f *CoinbaseFetcher) Fetch(ctx context.Context, base, target string) (strin
 		return "", fmt.Errorf("error unmarshaling the response: %w, response body: %s", err, string(body))
 	}
 
-	fetchedViaCoinbase.Inc()
+	fetchedViaCoinbaseCounter.Inc()
 
 	return r.Data.Amount, nil
 }

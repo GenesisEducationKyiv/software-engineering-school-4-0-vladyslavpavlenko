@@ -8,23 +8,23 @@ import (
 )
 
 var (
-	rateRequestCounter  = metrics.NewCounter("rate_request_count")
-	rateRequestDuration = metrics.NewHistogram("rate_request_duration_seconds")
+	rateRequestsCounter  = metrics.NewCounter("rate_requests_count")
+	rateRequestsDuration = metrics.NewHistogram("rate_requests_duration_seconds")
 )
 
 var (
-	subscribeRequestCounter  = metrics.NewCounter("subscribe_request_count")
-	subscribeRequestDuration = metrics.NewHistogram("subscribe_request_duration_seconds")
+	subscribeRequestsCounter  = metrics.NewCounter("subscribe_requests_count")
+	subscribeRequestsDuration = metrics.NewHistogram("subscribe_requests_duration_seconds")
 )
 
 var (
-	unsubscribeRequestCounter  = metrics.NewCounter("unsubscribe_request_count")
-	unsubscribeRequestDuration = metrics.NewHistogram("unsubscribe_request_duration_seconds")
+	unsubscribeRequestsCounter  = metrics.NewCounter("unsubscribe_requests_count")
+	unsubscribeRequestsDuration = metrics.NewHistogram("unsubscribe_requests_duration_seconds")
 )
 
 var (
-	sendEmailsRequestCounter  = metrics.NewCounter("send_emails_request_count")
-	sendEmailsRequestDuration = metrics.NewHistogram("send_emails_request_duration_seconds")
+	sendEmailsRequestsCounter  = metrics.NewCounter("send_emails_requests_count")
+	sendEmailsRequestsDuration = metrics.NewHistogram("send_emails_requests_duration_seconds")
 )
 
 // Metrics is a middleware that records the duration and count of each request.
@@ -36,17 +36,17 @@ func Metrics(next http.Handler) http.Handler {
 
 		switch r.URL.Path {
 		case "/api/v1/rate":
-			rateRequestCounter.Inc()
-			rateRequestDuration.UpdateDuration(start)
+			rateRequestsCounter.Inc()
+			rateRequestsDuration.UpdateDuration(start)
 		case "/api/v1/subscribe":
-			subscribeRequestCounter.Inc()
-			subscribeRequestDuration.UpdateDuration(start)
+			subscribeRequestsCounter.Inc()
+			subscribeRequestsDuration.UpdateDuration(start)
 		case "/api/v1/unsubscribe":
-			unsubscribeRequestCounter.Inc()
-			unsubscribeRequestDuration.UpdateDuration(start)
+			unsubscribeRequestsCounter.Inc()
+			unsubscribeRequestsDuration.UpdateDuration(start)
 		case "/api/v1/sendEmails":
-			sendEmailsRequestCounter.Inc()
-			sendEmailsRequestDuration.UpdateDuration(start)
+			sendEmailsRequestsCounter.Inc()
+			sendEmailsRequestsDuration.UpdateDuration(start)
 		}
 	})
 }
