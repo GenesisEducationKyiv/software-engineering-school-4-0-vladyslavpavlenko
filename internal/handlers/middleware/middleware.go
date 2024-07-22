@@ -34,21 +34,19 @@ func Metrics(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 
-		duration := time.Since(start).Seconds()
-
 		switch r.URL.Path {
 		case "/api/v1/rate":
 			rateRequestCounter.Inc()
-			rateRequestDuration.Update(duration)
+			rateRequestDuration.UpdateDuration(start)
 		case "/api/v1/subscribe":
 			subscribeRequestCounter.Inc()
-			subscribeRequestDuration.Update(duration)
+			subscribeRequestDuration.UpdateDuration(start)
 		case "/api/v1/unsubscribe":
 			unsubscribeRequestCounter.Inc()
-			unsubscribeRequestDuration.Update(duration)
+			unsubscribeRequestDuration.UpdateDuration(start)
 		case "/api/v1/sendEmails":
 			sendEmailsRequestCounter.Inc()
-			sendEmailsRequestDuration.Update(duration)
+			sendEmailsRequestDuration.UpdateDuration(start)
 		}
 	})
 }

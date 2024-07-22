@@ -3,8 +3,9 @@ package consumer
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
+
+	"github.com/VictoriaMetrics/metrics"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/pkg/logger"
 	"go.uber.org/zap"
@@ -18,25 +19,34 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-type Sender interface {
-	Send(params email.Params) error
-}
+var (
+	sentEmailsCounter    = metrics.NewCounter("sent_emails_count")
+	notSentEmailsCounter = metrics.NewCounter("not_sent_emails_count")
+	emailSendingDuration = metrics.NewHistogram("email_sending_duration_seconds")
+	_                    = metrics.NewGauge("email_sending_success_rate", calculateEmailSuccessRate)
+)
 
-type dbConnection interface {
-	Migrate(models ...any) error
-	AddConsumedEvent(event ConsumedEvent) error
-}
+type (
+	sender interface {
+		Send(params email.Params) error
+	}
+
+	dbConnection interface {
+		Migrate(models ...any) error
+		AddConsumedEvent(event ConsumedEvent) error
+	}
+)
 
 type KafkaConsumer struct {
 	db     dbConnection
 	Reader *kafka.Reader
-	Sender Sender
+	Sender sender
 	l      *logger.Logger
 }
 
 // NewKafkaConsumer initializes a new KafkaConsumer.
 func NewKafkaConsumer(kafkaURL, topic string, partition int, groupID string,
-	sender Sender, db dbConnection, l *logger.Logger,
+	sender sender, db dbConnection, l *logger.Logger,
 ) (*KafkaConsumer, error) {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        []string{kafkaURL},
@@ -58,7 +68,6 @@ func NewKafkaConsumer(kafkaURL, topic string, partition int, groupID string,
 // to send an email using the Sender interface.
 func (c *KafkaConsumer) Consume(ctx context.Context) {
 	for {
-		// Check if context is canceled before attempting to fetch a message
 		select {
 		case <-ctx.Done():
 			c.l.Info("shutting down consumer...", zap.String("cause", "context canceled"))
@@ -66,7 +75,6 @@ func (c *KafkaConsumer) Consume(ctx context.Context) {
 		default:
 		}
 
-		// Attempt to fetch a message from Kafka
 		m, err := c.Reader.FetchMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
@@ -77,42 +85,25 @@ func (c *KafkaConsumer) Consume(ctx context.Context) {
 			continue
 		}
 
-		// Attempt to deserialize the fetched message
+		start := time.Now()
+
 		data, err := outbox.DeserializeData(m.Value)
 		if err != nil {
 			c.l.Error("failed to deserialize data", zap.Int64("offset", m.Offset), zap.Error(err))
 			continue
 		}
 
-		// Send a message
-		c.sendMessage(data)
-
-		// Create a record of the consumed event
-		keyString := string(m.Key)
-		eventID, err := strconv.ParseUint(keyString, 10, 64)
+		err = c.sendMessage(data)
 		if err != nil {
-			c.l.Error("failed to parse event id", zap.Error(err))
-			continue
+			notSentEmailsCounter.Inc()
+			c.l.Error("failed to send email", zap.Int64("offset", m.Offset), zap.Error(err))
+		} else {
+			sentEmailsCounter.Inc()
 		}
 
-		sData, err := data.Serialize()
-		if err != nil {
-			c.l.Error("failed to serialize data", zap.Error(err))
-		}
+		// Record the duration it took to process the email
+		emailSendingDuration.UpdateDuration(start)
 
-		consumedEvent := ConsumedEvent{
-			ID:         uint(eventID),
-			Data:       sData,
-			ConsumedAt: time.Now(),
-		}
-
-		// Attempt to add the consumed event to the database
-		if err = c.db.AddConsumedEvent(consumedEvent); err != nil {
-			c.l.Error("failed to record consumed event", zap.Int64("offset", m.Offset), zap.Error(err))
-			continue
-		}
-
-		// Commit the offset back to Kafka to mark the message as processed
 		if err = c.Reader.CommitMessages(ctx, m); err != nil {
 			c.l.Error("failed to commit message", zap.Int64("offset", m.Offset), zap.Error(err))
 			continue
@@ -122,17 +113,17 @@ func (c *KafkaConsumer) Consume(ctx context.Context) {
 	}
 }
 
-func (c *KafkaConsumer) sendMessage(data outbox.Data) {
+func (c *KafkaConsumer) sendMessage(data outbox.Data) error {
 	params := email.Params{
 		To:      data.Email,
 		Subject: "USD to UAH Exchange Rate",
 		Body:    fmt.Sprintf("The current exchange rate for USD to UAH is %.2f.", data.Rate),
 	}
 
-	c.l.Info("sending email", zap.String("email", data.Email))
-
 	err := c.Sender.Send(params)
 	if err != nil {
-		c.l.Error("failed to send email", zap.Error(err))
+		return err
 	}
+
+	return nil
 }

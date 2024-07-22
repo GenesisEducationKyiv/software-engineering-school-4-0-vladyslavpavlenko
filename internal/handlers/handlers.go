@@ -106,7 +106,7 @@ func Metrics(w http.ResponseWriter, _ *http.Request) {
 func (h *Handlers) handleSubscription(w http.ResponseWriter, r *http.Request, action func(string) error,
 	successMessage string, errorMessage error,
 ) {
-	email, err := parseEmailFromRequest(r)
+	email, err := parseEmail(r)
 	if err != nil {
 		h.handleError(w, r, err, http.StatusBadRequest, errInvalidEmail.Error())
 		return
@@ -139,8 +139,8 @@ func (h *Handlers) handleError(w http.ResponseWriter, r *http.Request, err error
 	_ = jsonutils.ErrorJSON(w, err, statusCode)
 }
 
-// parseEmailFromRequest parses the email from the multipart form and validates it.
-func parseEmailFromRequest(r *http.Request) (string, error) {
+// parseEmail parses and validates the email from the multipart form of the http.Request.
+func parseEmail(r *http.Request) (string, error) {
 	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		return "", errors.New("failed to parse form")

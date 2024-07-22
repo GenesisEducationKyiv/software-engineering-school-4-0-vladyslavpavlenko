@@ -155,7 +155,7 @@ func (p *KafkaProducer) processEvents(ctx context.Context, topic string, partiti
 			p.l.Error("failed to send message", zap.Int("message_id", int(event.ID)), zap.Error(err))
 			return
 		}
-		p.l.Debug("message sent", zap.Int("message_id", int(event.ID)))
+		p.l.Debug("message sent to kafka", zap.Int("message_id", int(event.ID)))
 
 		lastOffset.Offset = event.ID
 		if err = p.db.UpdateOffset(&lastOffset); err != nil {
