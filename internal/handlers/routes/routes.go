@@ -14,6 +14,7 @@ func API(h *handlers.Handlers) http.Handler {
 	mux := chi.NewRouter()
 
 	mux.Use(middleware.Heartbeat("/health"))
+	mux.Use(middleware.RequestID)
 	mux.Use(m.Metrics)
 
 	mux.Route("/api", func(mux chi.Router) {

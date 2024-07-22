@@ -91,11 +91,15 @@ func setup(app *config.Config, l *logger.Logger) (*services, error) {
 
 	notifier := notifierpkg.NewNotifier(subscriber, fetcher, outbox)
 
-	handlers := handlerspkg.NewHandlers(app, &handlerspkg.Services{
-		Fetcher:    fetcher,
-		Notifier:   notifier,
-		Subscriber: subscriber,
-	})
+	handlers := handlerspkg.NewHandlers(
+		app,
+		&handlerspkg.Services{
+			Fetcher:    fetcher,
+			Notifier:   notifier,
+			Subscriber: subscriber,
+		},
+		l,
+	)
 
 	return &services{
 		DBConn:   dbConn,

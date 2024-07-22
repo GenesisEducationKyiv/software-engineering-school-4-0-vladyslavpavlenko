@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
+
+	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 
 	"github.com/VictoriaMetrics/metrics"
 	emailpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/email"
@@ -18,12 +20,31 @@ type rateUpdate struct {
 	Price      string `json:"price"`
 }
 
+const (
+	subscribed   = "subscribed"
+	unsubscribed = "unsubscribed"
+)
+
+var (
+	errFetchingRate  = errors.New("failed to fetch rate")
+	errSubscribing   = errors.New("failed to subscribe")
+	errUnsubscribing = errors.New("failed to unsubscribe")
+	errInvalidEmail  = errors.New("invalid email")
+	errSendingEmails = errors.New("failed to send emails")
+)
+
 // GetRate handles the `/rateapi` request.
 func (h *Handlers) GetRate(w http.ResponseWriter, r *http.Request) {
 	// Perform the fetching operation
 	price, err := h.Services.Fetcher.Fetch(r.Context(), "USD", "UAH")
 	if err != nil {
-		_ = jsonutils.ErrorJSON(w, fmt.Errorf("error fetching rate update: %w", err), http.StatusServiceUnavailable)
+		reqID := r.Context().Value(middleware.RequestIDKey).(string)
+		h.l.Error("failed to fetch rate",
+			zap.Error(err),
+			zap.String("request_id", reqID),
+		)
+
+		_ = jsonutils.ErrorJSON(w, errFetchingRate, http.StatusServiceUnavailable)
 		return
 	}
 
@@ -43,54 +64,26 @@ func (h *Handlers) GetRate(w http.ResponseWriter, r *http.Request) {
 
 // Subscribe handles the `/subscribe` request.
 func (h *Handlers) Subscribe(w http.ResponseWriter, r *http.Request) {
-	email, err := parseEmailFromRequest(r)
-	if err != nil {
-		_ = jsonutils.ErrorJSON(w, err)
-		return
-	}
-
-	err = h.Services.Subscriber.AddSubscription(email)
-	if err != nil {
-		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
-		return
-	}
-
-	payload := jsonutils.Response{
-		Error:   false,
-		Message: "subscribed",
-	}
-
-	_ = jsonutils.WriteJSON(w, http.StatusOK, payload)
+	h.handleSubscription(w, r, h.Services.Subscriber.AddSubscription, subscribed, errSubscribing)
 }
 
 // Unsubscribe handles the `/unsubscribe` request.
 func (h *Handlers) Unsubscribe(w http.ResponseWriter, r *http.Request) {
-	email, err := parseEmailFromRequest(r)
-	if err != nil {
-		_ = jsonutils.ErrorJSON(w, err)
-		return
-	}
-
-	err = h.Services.Subscriber.DeleteSubscription(email)
-	if err != nil {
-		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
-		return
-	}
-
-	payload := jsonutils.Response{
-		Error:   false,
-		Message: "unsubscribed",
-	}
-
-	_ = jsonutils.WriteJSON(w, http.StatusOK, payload)
+	h.handleSubscription(w, r, h.Services.Subscriber.DeleteSubscription, unsubscribed, errUnsubscribing)
 }
 
 // SendEmails handles the `/sendEmails` request.
-func (h *Handlers) SendEmails(w http.ResponseWriter, _ *http.Request) {
+func (h *Handlers) SendEmails(w http.ResponseWriter, r *http.Request) {
 	// Produce mailing events
 	err := h.Services.Notifier.Start()
 	if err != nil {
-		_ = jsonutils.ErrorJSON(w, err, http.StatusInternalServerError)
+		reqID := r.Context().Value(middleware.RequestIDKey).(string)
+		h.l.Error("failed to send emails",
+			zap.Error(err),
+			zap.String("request_id", reqID),
+		)
+
+		_ = jsonutils.ErrorJSON(w, errSendingEmails, http.StatusInternalServerError)
 		return
 	}
 
@@ -107,6 +100,43 @@ func (h *Handlers) SendEmails(w http.ResponseWriter, _ *http.Request) {
 func Metrics(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	metrics.WritePrometheus(w, false)
+}
+
+// handleSubscription processes subscription or unsubscription based on the provided handler function.
+func (h *Handlers) handleSubscription(w http.ResponseWriter, r *http.Request, action func(string) error,
+	successMessage string, errorMessage error,
+) {
+	email, err := parseEmailFromRequest(r)
+	if err != nil {
+		h.handleError(w, r, err, http.StatusBadRequest, errInvalidEmail.Error())
+		return
+	}
+
+	err = action(email)
+	if err != nil {
+		h.handleError(w, r, err, http.StatusInternalServerError, errorMessage.Error())
+		return
+	}
+
+	payload := jsonutils.Response{
+		Error:   false,
+		Message: successMessage,
+	}
+	_ = jsonutils.WriteJSON(w, http.StatusOK, payload)
+}
+
+// handleError handles errors and logs them with the request ID.
+func (h *Handlers) handleError(w http.ResponseWriter, r *http.Request, err error, statusCode int, logMessage string) {
+	reqID, ok := r.Context().Value(middleware.RequestIDKey).(string)
+	if !ok {
+		reqID = "unknown"
+	}
+	h.l.Error(logMessage,
+		zap.Error(err),
+		zap.String("request_id", reqID),
+	)
+
+	_ = jsonutils.ErrorJSON(w, err, statusCode)
 }
 
 // parseEmailFromRequest parses the email from the multipart form and validates it.

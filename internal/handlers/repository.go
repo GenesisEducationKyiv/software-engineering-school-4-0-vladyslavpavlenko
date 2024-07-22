@@ -6,6 +6,7 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/notifier"
+	"github.com/vladyslavpavlenko/genesis-api-project/pkg/logger"
 )
 
 type (
@@ -31,12 +32,14 @@ type Services struct {
 type Handlers struct {
 	App      *config.Config
 	Services *Services
+	l        *logger.Logger
 }
 
 // NewHandlers creates new Handlers.
-func NewHandlers(a *config.Config, services *Services) *Handlers {
+func NewHandlers(a *config.Config, services *Services, l *logger.Logger) *Handlers {
 	return &Handlers{
 		App:      a,
 		Services: services,
+		l:        l,
 	}
 }

@@ -41,7 +41,7 @@ func TestNewHandlers(t *testing.T) {
 		Subscriber: &mockSubscriber{},
 	}
 
-	h := handlers.NewHandlers(appConfig, mockServices)
+	h := handlers.NewHandlers(appConfig, mockServices, nil)
 
 	assert.NotNil(t, h)
 	assert.Equal(t, appConfig, h.App)
