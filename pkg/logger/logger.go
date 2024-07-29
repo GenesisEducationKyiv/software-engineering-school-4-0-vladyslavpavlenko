@@ -3,104 +3,90 @@ package logger
 import (
 	"os"
 
+	"github.com/vladyslavpavlenko/genesis-api-project/pkg/logger/rotator"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const (
 	ProdLevel = "prod"
-	DevLevel  = "dev"
 )
 
+// A Logger represents an active logging object that uses zap.Logger
+// to produce logs.
 type Logger struct {
-	logger        *zap.Logger
-	sugaredLogger *zap.SugaredLogger
+	l *zap.Logger
 }
 
-// New creates a new Logger instance.
-func New() *Logger {
-	var config zap.Config
-	level := os.Getenv("LOG_LEVEL")
+// New creates a new Logger.
+func New(rotation bool) *Logger {
+	var l Logger
+	lvl := os.Getenv("LOG_LEVEL")
+	cfg := newZapConfig(lvl)
 
-	switch level {
-	case ProdLevel:
-		config = zap.NewProductionConfig()
-	case DevLevel:
-		config = zap.NewDevelopmentConfig()
-	default:
-		config = zap.NewDevelopmentConfig()
-	}
+	core := setupLoggingCore(cfg, rotation)
+	l.l = zap.New(core)
 
-	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-
-	// Lumberjack logger for file rotation
-	lumberjackLogger := &lumberjack.Logger{
-		Filename:   "/var/log/app/app.log",
-		MaxSize:    5,  // megabytes
-		MaxBackups: 10, // number of backups
-		MaxAge:     14, // days
-		Compress:   true,
-	}
-
-	// File writer
-	fileSyncer := zapcore.AddSync(lumberjackLogger)
-	consoleSyncer := zapcore.AddSync(zapcore.Lock(os.Stdout))
-
-	// Configure the encoder
-	encoderConfig := config.EncoderConfig
-	encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-
-	// Encoder
-	consoleEncoder := zapcore.NewConsoleEncoder(encoderConfig)
-	fileEncoder := zapcore.NewConsoleEncoder(config.EncoderConfig)
-
-	core := zapcore.NewTee(
-		zapcore.NewCore(consoleEncoder, consoleSyncer, config.Level),
-		zapcore.NewCore(fileEncoder, fileSyncer, config.Level),
-	)
-
-	zapLogger := zap.New(core)
-
-	return &Logger{
-		logger:        zapLogger,
-		sugaredLogger: zapLogger.Sugar(),
-	}
+	return &l
 }
 
-// Sync flushes any buffered log entries.
-func (l *Logger) Sync() {
-	err := l.logger.Sync()
-	if err != nil {
-		l.logger.Error("failed to sync logger", zap.Error(err))
+// setupLoggingCore creates a zapcore.Core that duplicates log entries into
+// two or more underlying Cores.
+func setupLoggingCore(cfg zap.Config, rotation bool) zapcore.Core {
+	var cores []zapcore.Core
+
+	if rotation {
+		r := rotator.New()
+		fSync := zapcore.AddSync(r.Logger)
+		fEncoder := zapcore.NewConsoleEncoder(cfg.EncoderConfig)
+		cores = append(cores, zapcore.NewCore(fEncoder, fSync, cfg.Level))
 	}
-	err = l.sugaredLogger.Sync()
-	if err != nil {
-		l.logger.Error("failed to sync logger", zap.Error(err))
+
+	cSyncer := zapcore.AddSync(zapcore.Lock(os.Stdout))
+	cEncoder := zapcore.NewConsoleEncoder(cfg.EncoderConfig)
+
+	cores = append(cores, zapcore.NewCore(cEncoder, cSyncer, cfg.Level))
+
+	return zapcore.NewTee(cores...)
+}
+
+// getConfig returns a zap.Config of the specified level (ProdLevel or DevLevel).
+// The default one is zap.NewDevelopmentConfig.
+func newZapConfig(lvl string) zap.Config {
+	cfg := zap.NewDevelopmentConfig()
+
+	if lvl == ProdLevel {
+		cfg = zap.NewProductionConfig()
 	}
+
+	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+
+	return cfg
 }
 
 // Debug logs a message at Debug level.
 func (l *Logger) Debug(msg string, fields ...zap.Field) {
-	l.logger.Debug(msg, fields...)
+	l.l.Debug(msg, fields...)
 }
 
 // Info logs a message at Info level.
 func (l *Logger) Info(msg string, fields ...zap.Field) {
-	l.logger.Info(msg, fields...)
+	l.l.Info(msg, fields...)
 }
 
 // Warn logs a message at Warn level.
 func (l *Logger) Warn(msg string, fields ...zap.Field) {
-	l.logger.Warn(msg, fields...)
+	l.l.Warn(msg, fields...)
 }
 
 // Error logs a message at Error level.
 func (l *Logger) Error(msg string, fields ...zap.Field) {
-	l.logger.Error(msg, fields...)
+	l.l.Error(msg, fields...)
 }
 
 // Fatal logs a message at Fatal level.
 func (l *Logger) Fatal(msg string, fields ...zap.Field) {
-	l.logger.Fatal(msg, fields...)
+	l.l.Fatal(msg, fields...)
 }

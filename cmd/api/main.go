@@ -9,7 +9,7 @@ import (
 
 func main() {
 	a := config.New()
-	l := logger.New()
+	l := logger.New(true)
 
 	err := app.Run(a, l)
 	if err != nil {
