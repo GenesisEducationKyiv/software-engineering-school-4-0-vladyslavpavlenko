@@ -11,6 +11,8 @@ import (
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/storage/gormstorage"
 )
 
+const UniqueViolationCode = "23505"
+
 var ErrorInvalidEmail = errors.New("invalid email")
 
 // validateSubscription is an action that validates a subscription by validating an
@@ -32,7 +34,7 @@ func validateSubscription(saga *State, s *Subscriber) error {
 	}
 
 	if count > 0 {
-		return ErrorDuplicateSubscription
+		return ErrDuplicateSubscription
 	}
 
 	return nil
@@ -48,10 +50,11 @@ func addSubscription(saga *State, s *Subscriber) error {
 		CreatedAt: time.Now(),
 	}
 	result := s.db.WithContext(ctx).Create(&subscription)
+
 	if result.Error != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(result.Error, &pgErr) && pgErr.Code == "23505" {
-			return ErrorDuplicateSubscription
+		if errors.As(result.Error, &pgErr) && pgErr.Code == UniqueViolationCode {
+			return ErrDuplicateSubscription
 		}
 		return result.Error
 	}

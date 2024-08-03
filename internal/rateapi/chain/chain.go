@@ -2,7 +2,10 @@ package chain
 
 import (
 	"context"
+	"errors"
 )
+
+var ErrFetching = errors.New("failed to fetch rate; end of chain")
 
 type Fetcher interface {
 	Fetch(ctx context.Context, base, target string) (string, error)
@@ -38,7 +41,7 @@ func (n *Node) Fetch(ctx context.Context, base, target string) (string, error) {
 	if err != nil {
 		next := n.next
 		if next == nil {
-			return "", err
+			return "", ErrFetching
 		}
 
 		return next.Fetch(ctx, base, target)

@@ -6,11 +6,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/VictoriaMetrics/metrics"
 )
 
 const (
-	PrivatURL = "https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5"
+	privatURL = "https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5"
 )
+
+var fetchedViaPrivatCounter = metrics.NewCounter("fetched_via_privat_count")
 
 type (
 	PrivatFetcher struct {
@@ -33,7 +37,7 @@ func NewPrivatFetcher(client HTTPClient) *PrivatFetcher {
 
 // Fetch performs a call to the https://api.privatbank.ua to fetch the exchange rate between USD and UAH.
 func (f *PrivatFetcher) Fetch(ctx context.Context, _, _ string) (string, error) {
-	req, _ := http.NewRequestWithContext(ctx, "GET", PrivatURL, http.NoBody)
+	req, _ := http.NewRequestWithContext(ctx, "GET", privatURL, http.NoBody)
 
 	resp, err := f.client.Do(req)
 	if err != nil {
@@ -60,5 +64,6 @@ func (f *PrivatFetcher) Fetch(ctx context.Context, _, _ string) (string, error) 
 		return "", fmt.Errorf("no data in response")
 	}
 
+	fetchedViaPrivatCounter.Inc()
 	return r[1].Buy, nil
 }

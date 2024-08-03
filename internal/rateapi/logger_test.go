@@ -1,10 +1,8 @@
 package rateapi_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"log"
 	"testing"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
@@ -58,10 +56,7 @@ func TestFetcherWithLogger_Fetch(t *testing.T) {
 				FetchFunc: tt.mockFetchFunc,
 			}
 
-			var logBuf bytes.Buffer
-			log.SetOutput(&logBuf)
-
-			fetcherWithLogger := rateapi.NewFetcherWithLogger("TestFetcher", mockFetcher)
+			fetcherWithLogger := rateapi.NewFetcherWithLogger("TestFetcher", mockFetcher, nil)
 			rate, err := fetcherWithLogger.Fetch(context.Background(), tt.base, tt.target)
 
 			if rate != tt.expectedRate {

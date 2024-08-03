@@ -3,9 +3,12 @@ package consumer
 import (
 	"context"
 	"fmt"
-	"log"
-	"strconv"
 	"time"
+
+	"github.com/VictoriaMetrics/metrics"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/pkg/logger"
+	"go.uber.org/zap"
 
 	"github.com/pkg/errors"
 
@@ -16,23 +19,35 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-type Sender interface {
-	Send(params email.Params) error
-}
+var (
+	sentEmailsCounter    = metrics.NewCounter("sent_emails_count")
+	notSentEmailsCounter = metrics.NewCounter("not_sent_emails_count")
+	emailSendingDuration = metrics.NewHistogram("email_sending_duration_seconds")
+	_                    = metrics.NewGauge("email_sending_success_rate", calculateEmailSuccessRate)
+)
 
-type dbConnection interface {
-	Migrate(models ...any) error
-	AddConsumedEvent(event ConsumedEvent) error
-}
+type (
+	sender interface {
+		Send(params email.Params) error
+	}
+
+	dbConnection interface {
+		Migrate(models ...any) error
+		AddConsumedEvent(event ConsumedEvent) error
+	}
+)
 
 type KafkaConsumer struct {
 	db     dbConnection
 	Reader *kafka.Reader
-	Sender Sender
+	Sender sender
+	l      *logger.Logger
 }
 
 // NewKafkaConsumer initializes a new KafkaConsumer.
-func NewKafkaConsumer(kafkaURL, topic string, partition int, groupID string, sender Sender, db dbConnection) (*KafkaConsumer, error) {
+func NewKafkaConsumer(kafkaURL, topic string, partition int, groupID string,
+	sender sender, db dbConnection, l *logger.Logger,
+) (*KafkaConsumer, error) {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        []string{kafkaURL},
 		Topic:          topic,
@@ -46,70 +61,69 @@ func NewKafkaConsumer(kafkaURL, topic string, partition int, groupID string, sen
 		return nil, errors.Wrap(err, "failed to migrate offset")
 	}
 
-	return &KafkaConsumer{Reader: reader, Sender: sender, db: db}, nil
+	return &KafkaConsumer{Reader: reader, Sender: sender, db: db, l: l}, nil
 }
 
 // Consume is a worker that consumes messages from Kafka and processes them
 // to send an email using the Sender interface.
 func (c *KafkaConsumer) Consume(ctx context.Context) {
 	for {
-		// Attempt to fetch a message from Kafka
+		select {
+		case <-ctx.Done():
+			c.l.Info("shutting down consumer...", zap.String("cause", "context canceled"))
+			return
+		default:
+		}
+
 		m, err := c.Reader.FetchMessage(ctx)
 		if err != nil {
-			log.Printf("Failed to read message: %v", err)
+			if errors.Is(err, context.Canceled) {
+				c.l.Info("shutting down consumer...", zap.String("cause", "context canceled"))
+				return
+			}
+			c.l.Error("failed to read message", zap.Error(err))
 			continue
 		}
 
-		// Attempt to deserialize the fetched message
+		start := time.Now()
+
 		data, err := outbox.DeserializeData(m.Value)
 		if err != nil {
-			log.Printf("Failed to deserialize data from message at offset %d: %v", m.Offset, err)
+			c.l.Error("failed to deserialize data", zap.Int64("offset", m.Offset), zap.Error(err))
 			continue
 		}
 
-		// Send a message
-		c.sendMessage(data)
-
-		// Create a record of the consumed event
-		keyString := string(m.Key)
-		eventID, err := strconv.ParseUint(keyString, 10, 64)
+		err = c.sendMessage(data)
 		if err != nil {
-			log.Printf("Failed to parse event ID from key: %v", err)
-			continue
-		}
-
-		consumedEvent := ConsumedEvent{
-			ID:         uint(eventID),
-			Data:       data.Serialize(),
-			ConsumedAt: time.Now(),
-		}
-
-		// Attempt to add the consumed event to the database
-		if err = c.db.AddConsumedEvent(consumedEvent); err != nil {
-			log.Printf("Failed to record consumed event at offset %d: %v", m.Offset, err)
-			continue
-		}
-
-		// Commit the offset back to Kafka to mark the message as processed
-		if err = c.Reader.CommitMessages(ctx, m); err != nil {
-			log.Printf("Failed to commit message offset %d: %v", m.Offset, err)
+			notSentEmailsCounter.Inc()
+			c.l.Error("failed to send email", zap.Int64("offset", m.Offset), zap.Error(err))
 		} else {
-			log.Printf("Offset committed successfully for message at offset: %d", m.Offset)
+			sentEmailsCounter.Inc()
 		}
+
+		// Record the duration it took to process the email
+		emailSendingDuration.UpdateDuration(start)
+
+		if err = c.Reader.CommitMessages(ctx, m); err != nil {
+			c.l.Error("failed to commit message", zap.Int64("offset", m.Offset), zap.Error(err))
+			continue
+		}
+
+		c.l.Debug("offset committed", zap.Int64("offset", m.Offset))
 	}
 }
 
-func (c *KafkaConsumer) sendMessage(data outbox.Data) {
+func (c *KafkaConsumer) sendMessage(data outbox.Data) error {
 	params := email.Params{
 		To:      data.Email,
 		Subject: "USD to UAH Exchange Rate",
 		Body:    fmt.Sprintf("The current exchange rate for USD to UAH is %.2f.", data.Rate),
 	}
 
-	log.Printf("Sending email to %s", data.Email)
-
 	err := c.Sender.Send(params)
 	if err != nil {
-		log.Printf("Failed to send email: %v", err)
+		return err
 	}
+
+	return nil
 }

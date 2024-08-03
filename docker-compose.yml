@@ -12,7 +12,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASS}
       POSTGRES_DB: ${DB_NAME}
     volumes:
-      - ./app/dbrepo-data/postgres/:/var/lib/postgresql/data/
+      - ./app/db-data/postgres/:/var/lib/postgresql/data/
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     healthcheck:
@@ -60,6 +60,7 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+      - "8081:8081"
     restart: always
     env_file:
       - .env
@@ -69,3 +70,22 @@ services:
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
+      - ./app/logs:/var/log/app
+
+  victoriadb:
+    image: victoriametrics/victoria-metrics
+    ports:
+      - "8428:8428"
+    command: '-storageDataPath=/victoria-metrics-data'
+    volumes:
+      - ./app/victoriadb-data:/victoria-metrics-data
+
+  vmagent:
+    image: victoriametrics/vmagent
+    ports:
+      - "8429:8429"
+    command: |
+      -remoteWrite.url=http://victoriadb:8428/api/v1/write
+      -promscrape.config=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro

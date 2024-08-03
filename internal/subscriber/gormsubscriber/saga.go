@@ -81,11 +81,18 @@ func (o *Orchestrator) Run(s *Subscriber) error {
 		}
 
 		if err != nil {
-			o.State.IsCompensating = true
-			err = o.saveState()
-			if err != nil {
+			if errors.Is(err, ErrDuplicateSubscription) {
+				o.State.IsCompensating = false
+				o.State.Status = StatusFailed
+				_ = o.saveState()
 				return err
 			}
+
+			if !o.State.IsCompensating {
+				o.State.IsCompensating = true
+				_ = o.saveState()
+			}
+
 			continue
 		}
 
@@ -93,28 +100,20 @@ func (o *Orchestrator) Run(s *Subscriber) error {
 			o.State.CurrentStep--
 			if o.State.CurrentStep < 0 {
 				o.State.Status = StatusFailed
-				err = o.saveState()
-				if err != nil {
-					return err
-				}
-				return err
+				_ = o.saveState()
+				return errors.New("compensation completed")
 			}
 		} else {
 			o.State.CurrentStep++
 		}
-		err = o.saveState()
-		if err != nil {
-			return err
-		}
+		_ = o.saveState()
 	}
 
 	if !o.State.IsCompensating {
 		o.State.Status = StatusCompleted
-		err := o.saveState()
-		if err != nil {
-			return err
-		}
+		_ = o.saveState()
 	}
+
 	return nil
 }
 

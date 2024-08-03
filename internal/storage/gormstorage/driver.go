@@ -3,9 +3,13 @@ package gormstorage
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
+	glogger "gorm.io/gorm/logger"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/pkg/logger"
+
+	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -14,6 +18,7 @@ const RequestTimeout = time.Second * 5
 
 type Connection struct {
 	db *gorm.DB
+	l  *logger.Logger
 }
 
 // DB returns a pointer to gorm.DB.
@@ -21,33 +26,36 @@ func (c *Connection) DB() *gorm.DB {
 	return c.db
 }
 
-// Setup sets up a new Connection.
-func (c *Connection) Setup(dsn string) error {
+// Setup sets up a new Connection with a logger.
+func (c *Connection) Setup(dsn string, l *logger.Logger) error {
+	c.l = l
 	var counts int64
 	for {
 		db, err := openDB(dsn)
 		if err != nil {
-			log.Printf("Postgres not yet ready... Attempt: %d\n", counts)
+			c.l.Error("Postgres not yet ready...", zap.Int64("attempt", counts), zap.Error(err))
 			counts++
 		} else {
-			log.Println("Connected to Postgres!")
+			c.l.Debug("connected to Postgres!")
 			c.db = db
 			return nil
 		}
 
 		if counts > 10 {
-			log.Println("Maximum retry attempts exceeded:", err)
+			c.l.Error("maximum retry attempts exceeded", zap.Error(err))
 			return err
 		}
 
-		log.Println("Backing off for two seconds...")
+		c.l.Debug("backing off for two seconds...")
 		time.Sleep(2 * time.Second)
 	}
 }
 
 // openDB initializes a new gorm.DB database connection.
 func openDB(dsn string) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: glogger.Default.LogMode(glogger.Silent),
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -2,25 +2,28 @@ package rateapi
 
 import (
 	"context"
-	"log"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/pkg/logger"
+
+	"go.uber.org/zap"
 )
 
-type (
-	FetcherWithLogger struct {
-		name    string
-		fetcher Fetcher
-	}
+type fetcher interface {
+	Fetch(ctx context.Context, base, target string) (string, error)
+}
 
-	Fetcher interface {
-		Fetch(ctx context.Context, base, target string) (string, error)
-	}
-)
+type FetcherWithLogger struct {
+	name    string
+	fetcher fetcher
+	l       *logger.Logger
+}
 
 // NewFetcherWithLogger creates and returns a pointer to a new FetcherWithLogger.
-func NewFetcherWithLogger(name string, fetcher Fetcher) *FetcherWithLogger {
+func NewFetcherWithLogger(name string, f fetcher, l *logger.Logger) *FetcherWithLogger {
 	return &FetcherWithLogger{
 		name:    name,
-		fetcher: fetcher,
+		fetcher: f,
+		l:       l,
 	}
 }
 
@@ -28,10 +31,10 @@ func NewFetcherWithLogger(name string, fetcher Fetcher) *FetcherWithLogger {
 func (f *FetcherWithLogger) Fetch(ctx context.Context, base, target string) (string, error) {
 	rate, err := f.fetcher.Fetch(ctx, base, target)
 	if err != nil {
-		log.Printf("[%s]: error: %v", f.name, err)
+		f.l.Error("error fetching rate", zap.String("fetcher", f.name), zap.Error(err))
 		return "", err
 	}
 
-	log.Printf("[%s]: rate: %+v", f.name, rate)
+	f.l.Info("rate fetched", zap.String("fetcher", f.name), zap.String("rate", rate))
 	return rate, nil
 }

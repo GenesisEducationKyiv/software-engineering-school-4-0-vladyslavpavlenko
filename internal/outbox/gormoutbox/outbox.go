@@ -19,9 +19,9 @@ type Outbox struct {
 	db dbConnection
 }
 
-// NewOutbox creates `events` table to implement a transactional outbox.
+// New creates `events` table to implement a transactional outbox.
 // `events` table stores all the events ever occurred.
-func NewOutbox(db dbConnection) (*Outbox, error) {
+func New(db dbConnection) (*Outbox, error) {
 	err := db.Migrate(&outbox.Event{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to migrate events")
@@ -35,7 +35,12 @@ func (o *Outbox) AddEvent(data outbox.Data) error {
 		CreatedAt: time.Now(),
 	}
 
-	event.Data = data.Serialize()
+	sData, err := data.Serialize()
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize data")
+	}
+
+	event.Data = sData
 
 	return o.db.AddEvent(event)
 }

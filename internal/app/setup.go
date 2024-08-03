@@ -2,8 +2,11 @@ package app
 
 import (
 	"fmt"
-	"log"
 	"net/http"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
+
+	"github.com/vladyslavpavlenko/genesis-api-project/pkg/logger"
 
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/subscriber/gormsubscriber"
 
@@ -15,7 +18,6 @@ import (
 
 	outboxpkg "github.com/vladyslavpavlenko/genesis-api-project/internal/outbox"
 
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/app/config"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/models"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/rateapi/chain"
@@ -23,7 +25,7 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 	"github.com/vladyslavpavlenko/genesis-api-project/internal/email"
-	"github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
+	handlerspkg "github.com/vladyslavpavlenko/genesis-api-project/internal/handlers"
 )
 
 // envVariables holds environment variables used in the application.
@@ -44,9 +46,10 @@ type services struct {
 	Notifier   *notifierpkg.Notifier
 	Subscriber *gormsubscriber.Subscriber
 	Outbox     producerpkg.Outbox
+	Handlers   *handlerspkg.Handlers
 }
 
-func setup(app *config.AppConfig) (*services, error) {
+func setup(app *config.Config, l *logger.Logger) (*services, error) {
 	envs, err := readEnv()
 	if err != nil {
 		return nil, fmt.Errorf("error reading the .env file: %w", err)
@@ -59,44 +62,51 @@ func setup(app *config.AppConfig) (*services, error) {
 		envs.DBPass,
 		envs.DBName)
 
-	dbConn, err := connectDB(dsn)
+	dbConn, err := connectDB(dsn, l)
 	if err != nil {
 		return nil, fmt.Errorf("error conntecting to the database: %w", err)
 	}
 
-	err = migrateDB(dbConn)
+	err = migrateDB(dbConn, l)
 	if err != nil {
 		return nil, fmt.Errorf("error runnning database migrations: %w", err)
 	}
 
-	fetcher := setupFetchersChain(&http.Client{})
+	fetcher := setupFetchersChain(&http.Client{}, l)
 
 	sender, err := setupSender(&envs)
 	if err != nil {
 		return nil, fmt.Errorf("failed set up sender: %w", err)
 	}
 
-	outbox, err := gormoutbox.NewOutbox(dbConn)
+	outbox, err := gormoutbox.New(dbConn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create outbox: %w", err)
 	}
 
-	subscriber := gormsubscriber.NewSubscriber(dbConn.DB())
+	subscriber, err := gormsubscriber.NewSubscriber(dbConn.DB(), l)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup subscriber service: %w", err)
+	}
 
 	notifier := notifierpkg.NewNotifier(subscriber, fetcher, outbox)
 
-	repo := handlers.NewRepo(app, &handlers.Services{
-		Fetcher:    fetcher,
-		Notifier:   notifier,
-		Subscriber: subscriber,
-	})
-	handlers.NewHandlers(repo)
+	handlers := handlerspkg.NewHandlers(
+		app,
+		&handlerspkg.Services{
+			Fetcher:    fetcher,
+			Notifier:   notifier,
+			Subscriber: subscriber,
+		},
+		l,
+	)
 
 	return &services{
-		DBConn:  dbConn,
-		Sender:  sender,
-		Fetcher: fetcher,
-		Outbox:  outbox,
+		DBConn:   dbConn,
+		Sender:   sender,
+		Fetcher:  fetcher,
+		Outbox:   outbox,
+		Handlers: handlers,
 	}, nil
 }
 
@@ -111,10 +121,10 @@ func readEnv() (envVariables, error) {
 }
 
 // connectDB sets up a GORM database connection and returns an interface.
-func connectDB(dsn string) (*gormstorage.Connection, error) {
+func connectDB(dsn string, l *logger.Logger) (*gormstorage.Connection, error) {
 	var conn gormstorage.Connection
 
-	err := conn.Setup(dsn)
+	err := conn.Setup(dsn, l)
 	if err != nil {
 		return nil, err
 	}
@@ -123,15 +133,15 @@ func connectDB(dsn string) (*gormstorage.Connection, error) {
 }
 
 // migrateDB runs database migrations.
-func migrateDB(conn *gormstorage.Connection) error {
-	log.Println("Running migrations...")
+func migrateDB(conn *gormstorage.Connection, l *logger.Logger) error {
+	l.Debug("running migrations...")
 
 	err := conn.Migrate(&models.Subscription{}, &outboxpkg.Event{})
 	if err != nil {
 		return fmt.Errorf("error running migrations: %w", err)
 	}
 
-	log.Println("Database migrated!")
+	l.Debug("database migrated!")
 
 	return nil
 }
@@ -150,15 +160,15 @@ func setupSender(envs *envVariables) (sender *email.GomailSender, err error) {
 }
 
 // setupFetchersChain sets up a chain of responsibility for fetchers.
-func setupFetchersChain(client *http.Client) *chain.Node {
+func setupFetchersChain(c *http.Client, l *logger.Logger) *chain.Node {
 	coinbaseFetcher := rateapi.NewFetcherWithLogger("coinbase",
-		rateapi.NewCoinbaseFetcher(client))
+		rateapi.NewCoinbaseFetcher(c), l)
 
 	nbuFetcher := rateapi.NewFetcherWithLogger("bank.gov.ua",
-		rateapi.NewNBUFetcher(client))
+		rateapi.NewNBUFetcher(c), l)
 
 	privatFetcher := rateapi.NewFetcherWithLogger("api.privatbank.ua",
-		rateapi.NewPrivatFetcher(client))
+		rateapi.NewPrivatFetcher(c), l)
 
 	coinbaseNode := chain.NewNode(coinbaseFetcher)
 	nbuNode := chain.NewNode(nbuFetcher)

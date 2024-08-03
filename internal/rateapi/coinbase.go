@@ -6,11 +6,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/VictoriaMetrics/metrics"
 )
 
 const (
-	CoinbaseURL = "https://api.coinbase.com/v2/prices/%s-%s/buy"
+	coinbaseURL = "https://api.coinbase.com/v2/prices/%s-%s/buy"
 )
+
+var fetchedViaCoinbaseCounter = metrics.NewCounter("fetched_via_coinbase_count")
 
 type (
 	CoinbaseFetcher struct {
@@ -39,7 +43,7 @@ func NewCoinbaseFetcher(client HTTPClient) *CoinbaseFetcher {
 // Fetch performs a call to the Coinbase API to fetch the exchange rate between the
 // specified base and target currencies.
 func (f *CoinbaseFetcher) Fetch(ctx context.Context, base, target string) (string, error) {
-	url := fmt.Sprintf(CoinbaseURL, base, target)
+	url := fmt.Sprintf(coinbaseURL, base, target)
 
 	req, _ := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 
@@ -63,6 +67,8 @@ func (f *CoinbaseFetcher) Fetch(ctx context.Context, base, target string) (strin
 	if err != nil {
 		return "", fmt.Errorf("error unmarshaling the response: %w, response body: %s", err, string(body))
 	}
+
+	fetchedViaCoinbaseCounter.Inc()
 
 	return r.Data.Amount, nil
 }

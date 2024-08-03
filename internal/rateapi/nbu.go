@@ -6,11 +6,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/VictoriaMetrics/metrics"
 )
 
 const (
-	NBUURL = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=%s&json"
+	nbuURL = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=%s&json"
 )
+
+var fetchedViaNBUCounter = metrics.NewCounter("fetched_via_nbu_count")
 
 type (
 	NBUFetcher struct {
@@ -23,7 +27,7 @@ type (
 		TXT          string  `json:"txt"`
 		Rate         float64 `json:"rate"`
 		CC           string  `json:"cc"`
-		ExchangeData string  `json:"exchangedate"`
+		ExchangeData string  `json:"exchange_data"`
 	}
 )
 
@@ -35,7 +39,7 @@ func NewNBUFetcher(client HTTPClient) *NBUFetcher {
 // Fetch performs a call to the https://bank.gov.ua to fetch the exchange rate between the
 // specified base currency and UAH.
 func (f *NBUFetcher) Fetch(ctx context.Context, base, _ string) (string, error) {
-	url := fmt.Sprintf(NBUURL, base)
+	url := fmt.Sprintf(nbuURL, base)
 
 	req, _ := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 
@@ -66,5 +70,6 @@ func (f *NBUFetcher) Fetch(ctx context.Context, base, _ string) (string, error) 
 
 	rate := fmt.Sprintf("%f", r[0].Rate)
 
+	fetchedViaNBUCounter.Inc()
 	return rate, nil
 }
